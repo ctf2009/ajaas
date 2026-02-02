@@ -31,6 +31,7 @@ Inspired by FOAAS, but wholesome instead of profane.
 
 - Curated templates to start
 - Mix of wholesome and playful "tough love" (e.g., "Awesome job. Take 2 days off, but step it up next week.")
+- **Tough love messages can be disabled via config** (wholesome only mode)
 - AI-generated messages as a future option
 - Simple `- {from}` attribution when `from` param provided
 
@@ -156,6 +157,10 @@ endpoints:
 security:
   enabled: false          # Global auth toggle
                           # (schedule ignores this, always requires auth)
+
+messages:
+  toughLove: true         # Include "tough love" style messages
+                          # Set to false for wholesome only
 ```
 
 ---
