@@ -30,10 +30,37 @@ Inspired by FOAAS, but wholesome instead of profane.
 ## Message Content
 
 - Curated templates to start
-- Mix of wholesome and playful "tough love" (e.g., "Awesome job. Take 2 days off, but step it up next week.")
+- Mix of wholesome and playful "tough love"
 - **Tough love messages can be disabled via config** (wholesome only mode)
 - AI-generated messages as a future option
 - Simple `- {from}` attribution when `from` param provided
+
+### Message Types
+
+Available via `/api/message/:type/:name`:
+
+**`animal`** - Animal/nature similes
+- "You've navigated this week like a bear navigates its way to honey, :name."
+- "You attacked those tasks like a caffeinated squirrel at a bird feeder, :name."
+- "You've been as dependable as a salmon swimming upstream, :name. But with less flopping."
+
+**`absurd`** - Absurdist humor
+- "If productivity were an Olympic sport, you'd be disqualified for being suspiciously good, :name."
+- "You crushed it so hard this week, :name, geologists want to study the impact site."
+- "Scientists are baffled by your output, :name. They're calling it 'unreasonably effective.'"
+
+**`meta`** - Self-aware / meta humor
+- "This automated message thinks you're great, :name. It's never wrong."
+- "A computer is telling you you're awesome, :name. The machines are on your side."
+
+**`unexpected`** - Unexpected compliments
+- "You didn't just meet expectations, :name. You took expectations out for dinner and showed them a lovely time."
+- "You handled this week like a diplomat handles a buffet, :name - with grace and efficiency."
+
+**`toughLove`** - Tough love (when enabled)
+- "Solid work, :name. Not legendary, but solid. Take 2 days off and come back hungry."
+- "You survived, :name. That's the bar, and you cleared it. Barely. Rest up."
+- "Adequate, :name. The word you're looking for is adequate. Now go away for 2 days."
 
 ---
 
