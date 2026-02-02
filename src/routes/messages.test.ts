@@ -15,6 +15,7 @@ describe('Message Routes', () => {
       endpoints: { schedule: { enabled: false } },
       security: { enabled: false, encryptionKey: '' },
       messages: { toughLove },
+      rateLimit: { enabled: false, max: 100, timeWindow: '1 minute' },
     };
     await fastify.register(messageRoutes, { prefix: '/api', config });
     return fastify;

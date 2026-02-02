@@ -16,6 +16,11 @@ export interface Config {
   messages: {
     toughLove: boolean;
   };
+  rateLimit: {
+    enabled: boolean;
+    max: number;
+    timeWindow: string;
+  };
 }
 
 function getEnvBoolean(key: string, defaultValue: boolean): boolean {
@@ -42,6 +47,11 @@ export function loadConfig(): Config {
     },
     messages: {
       toughLove: getEnvBoolean('TOUGH_LOVE_ENABLED', true),
+    },
+    rateLimit: {
+      enabled: getEnvBoolean('RATE_LIMIT_ENABLED', false),
+      max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+      timeWindow: process.env.RATE_LIMIT_WINDOW || '1 minute',
     },
   };
 }

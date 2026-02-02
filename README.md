@@ -68,6 +68,9 @@ All message endpoints accept an optional `?from=Name` query parameter for attrib
 | `ENCRYPTION_KEY` | - | Key for token encryption (32+ chars) |
 | `TOUGH_LOVE_ENABLED` | `true` | Include tough love messages |
 | `DB_PATH` | `:memory:` | SQLite database path |
+| `RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
+| `RATE_LIMIT_MAX` | `100` | Max requests per time window |
+| `RATE_LIMIT_WINDOW` | `1 minute` | Rate limit time window |
 
 ### Email Configuration (for scheduled messages)
 

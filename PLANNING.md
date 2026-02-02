@@ -188,6 +188,12 @@ security:
 messages:
   toughLove: true         # Include "tough love" style messages
                           # Set to false for wholesome only
+
+rateLimit:
+  enabled: false          # Enable rate limiting
+  max: 100                # Requests per time window
+  timeWindow: '1 minute'  # Time window for rate limiting
+                          # Uses API key when authenticated, IP when not
 ```
 
 ---

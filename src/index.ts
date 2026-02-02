@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import fastifyStatic from '@fastify/static';
+import fastifyRateLimit from '@fastify/rate-limit';
 import { loadConfig } from './config.js';
 import { messageRoutes } from './routes/messages.js';
 import { scheduleRoutes } from './routes/schedule.js';
@@ -93,6 +94,37 @@ await fastify.register(fastifySwaggerUi, {
   routePrefix: '/api/docs',
 });
 
+// Rate limiting (if enabled)
+if (config.rateLimit.enabled) {
+  await fastify.register(fastifyRateLimit, {
+    max: config.rateLimit.max,
+    timeWindow: config.rateLimit.timeWindow,
+    keyGenerator: (request) => {
+      // Use API key (sub claim) if authenticated, otherwise use IP
+      const authHeader = request.headers.authorization;
+      if (authHeader && tokenService) {
+        const token = authHeader.startsWith('Bearer ')
+          ? authHeader.slice(7)
+          : authHeader;
+        const payload = tokenService.decrypt(token);
+        if (payload && !tokenService.isExpired(payload)) {
+          return `key:${payload.sub}`;
+        }
+      }
+      return `ip:${request.ip}`;
+    },
+    errorResponseBuilder: (request, context) => {
+      return {
+        statusCode: 429,
+        error: 'Too Many Requests',
+        message: `Rate limit exceeded. Try again in ${Math.ceil(context.ttl / 1000)} seconds.`,
+        retryAfter: Math.ceil(context.ttl / 1000),
+      };
+    },
+  });
+  console.log(`Rate limiting enabled: ${config.rateLimit.max} requests per ${config.rateLimit.timeWindow}`);
+}
+
 // Register message routes
 await fastify.register(messageRoutes, { prefix: '/api', config });
 
@@ -141,6 +173,7 @@ fastify.get('/health', async () => {
     scheduling: config.endpoints.schedule.enabled,
     security: config.security.enabled,
     web: config.web.enabled,
+    rateLimit: config.rateLimit.enabled,
   };
 });
 
