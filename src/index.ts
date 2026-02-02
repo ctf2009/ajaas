@@ -1,0 +1,170 @@
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
+import Fastify from 'fastify';
+import fastifySwagger from '@fastify/swagger';
+import fastifySwaggerUi from '@fastify/swagger-ui';
+import fastifyStatic from '@fastify/static';
+import { loadConfig } from './config.js';
+import { messageRoutes } from './routes/messages.js';
+import { scheduleRoutes } from './routes/schedule.js';
+import { SQLiteStorage } from './storage/sqlite.js';
+import { TokenService } from './auth/token.js';
+import { MessageService } from './services/messages.js';
+import { Scheduler } from './scheduler/index.js';
+import { ConsoleDelivery, NodemailerDelivery } from './delivery/email.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const config = loadConfig();
+
+// Initialize storage
+const storage = new SQLiteStorage(process.env.DB_PATH || ':memory:');
+
+// Initialize services
+const messageService = new MessageService(config.messages.toughLove);
+
+// Initialize email delivery
+const emailDelivery = process.env.SMTP_HOST
+  ? new NodemailerDelivery({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: process.env.SMTP_USER
+        ? {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS || '',
+          }
+        : undefined,
+      from: process.env.SMTP_FROM || 'ajaas@example.com',
+    })
+  : new ConsoleDelivery();
+
+// Initialize scheduler
+const scheduler = new Scheduler(storage, messageService, emailDelivery);
+
+// Initialize token service (only if security is enabled or schedule endpoints are enabled)
+let tokenService: TokenService | null = null;
+if (config.security.enabled || config.endpoints.schedule.enabled) {
+  if (!config.security.encryptionKey) {
+    console.warn(
+      'WARNING: ENCRYPTION_KEY not set. Security features will not work properly.'
+    );
+  } else {
+    tokenService = new TokenService(config.security.encryptionKey);
+  }
+}
+
+const fastify = Fastify({
+  logger: true,
+});
+
+// OpenAPI setup
+await fastify.register(fastifySwagger, {
+  openapi: {
+    info: {
+      title: 'AJAAS - Awesome Job As A Service',
+      description: 'A wholesome API that generates personalized compliment messages.',
+      version: '0.1.0',
+    },
+    servers: [
+      {
+        url: 'http://localhost:3000',
+        description: 'Development server',
+      },
+    ],
+    tags: [
+      { name: 'messages', description: 'Message endpoints' },
+      { name: 'schedule', description: 'Scheduling endpoints' },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+        },
+      },
+    },
+  },
+});
+
+await fastify.register(fastifySwaggerUi, {
+  routePrefix: '/api/docs',
+});
+
+// Register message routes
+await fastify.register(messageRoutes, { prefix: '/api', config });
+
+// Register schedule routes (only if enabled and token service is available)
+if (config.endpoints.schedule.enabled && tokenService) {
+  await fastify.register(scheduleRoutes, {
+    prefix: '/api',
+    config,
+    storage,
+    tokenService,
+    scheduler,
+  });
+
+  // Start the scheduler
+  scheduler.start();
+}
+
+// Serve static web app if enabled
+if (config.web.enabled) {
+  const webDir = join(__dirname, 'web');
+  if (existsSync(webDir)) {
+    await fastify.register(fastifyStatic, {
+      root: webDir,
+      prefix: '/',
+      decorateReply: false,
+    });
+
+    // SPA fallback - serve index.html for non-API routes
+    fastify.setNotFoundHandler((request, reply) => {
+      if (!request.url.startsWith('/api')) {
+        return reply.sendFile('index.html');
+      }
+      return reply.status(404).send({ error: 'Not found' });
+    });
+
+    console.log('Web UI enabled');
+  } else {
+    console.log('Web UI enabled but dist/web not found. Run npm run build:web first.');
+  }
+}
+
+// Health check
+fastify.get('/health', async () => {
+  return {
+    status: 'ok',
+    scheduling: config.endpoints.schedule.enabled,
+    security: config.security.enabled,
+    web: config.web.enabled,
+  };
+});
+
+// Graceful shutdown
+const shutdown = async () => {
+  console.log('Shutting down...');
+  scheduler.stop();
+  storage.close();
+  await fastify.close();
+  process.exit(0);
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+
+// Start server
+try {
+  await fastify.listen({ port: config.port, host: config.host });
+  console.log(`AJAAS running at http://${config.host}:${config.port}`);
+  console.log(`API docs at http://${config.host}:${config.port}/api/docs`);
+  console.log(`Scheduling: ${config.endpoints.schedule.enabled ? 'enabled' : 'disabled'}`);
+  console.log(`Security: ${config.security.enabled ? 'enabled' : 'disabled'}`);
+  console.log(`Tough love: ${config.messages.toughLove ? 'enabled' : 'disabled'}`);
+} catch (err) {
+  fastify.log.error(err);
+  process.exit(1);
+}
