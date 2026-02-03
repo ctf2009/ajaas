@@ -1,9 +1,27 @@
-import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { FastifyInstance, FastifyPluginOptions, FastifyReply } from 'fastify';
 import { MessageService, MessageType } from '../services/messages.js';
 import { Config } from '../config.js';
 
 interface MessageRouteOptions extends FastifyPluginOptions {
   config: Config;
+}
+
+function wantsText(accept: string | undefined): boolean {
+  if (!accept) return false;
+  // Check if text/plain is explicitly requested and preferred over JSON
+  const types = accept.split(',').map((t) => t.trim().split(';')[0].trim());
+  const textIndex = types.indexOf('text/plain');
+  const jsonIndex = types.indexOf('application/json');
+  if (textIndex === -1) return false;
+  if (jsonIndex === -1) return true;
+  return textIndex < jsonIndex;
+}
+
+function sendMessage(reply: FastifyReply, accept: string | undefined, message: string) {
+  if (wantsText(accept)) {
+    return reply.type('text/plain').send(message);
+  }
+  return { message };
 }
 
 const nameParamSchema = {
@@ -64,10 +82,10 @@ export async function messageRoutes(
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { name } = request.params;
       const { from } = request.query;
-      return { message: messageService.getSimpleMessage(name, from) };
+      return sendMessage(reply, request.headers.accept, messageService.getSimpleMessage(name, from));
     }
   );
 
@@ -88,10 +106,10 @@ export async function messageRoutes(
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { name } = request.params;
       const { from } = request.query;
-      return { message: messageService.getWeeklyMessage(name, from) };
+      return sendMessage(reply, request.headers.accept, messageService.getWeeklyMessage(name, from));
     }
   );
 
@@ -112,10 +130,10 @@ export async function messageRoutes(
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { name } = request.params;
       const { from } = request.query;
-      return { message: messageService.getRandomMessage(name, from) };
+      return sendMessage(reply, request.headers.accept, messageService.getRandomMessage(name, from));
     }
   );
 
@@ -166,7 +184,7 @@ export async function messageRoutes(
         });
       }
 
-      return { message };
+      return sendMessage(reply, request.headers.accept, message);
     }
   );
 

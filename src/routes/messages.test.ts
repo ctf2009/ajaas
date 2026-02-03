@@ -154,6 +154,116 @@ describe('Message Routes', () => {
     });
   });
 
+  describe('Content negotiation', () => {
+    it('should return text/plain when Accept: text/plain', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/awesome/Sarah',
+        headers: { accept: 'text/plain' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/plain');
+      expect(response.body).toBe('Awesome job, Sarah!');
+    });
+
+    it('should return JSON by default', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/awesome/Sarah',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('application/json');
+      const body = JSON.parse(response.body);
+      expect(body.message).toBe('Awesome job, Sarah!');
+    });
+
+    it('should return JSON when Accept: application/json', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/awesome/Sarah',
+        headers: { accept: 'application/json' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('application/json');
+      const body = JSON.parse(response.body);
+      expect(body.message).toBe('Awesome job, Sarah!');
+    });
+
+    it('should prefer text/plain when listed first in Accept', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/awesome/Sarah',
+        headers: { accept: 'text/plain, application/json' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/plain');
+      expect(response.body).toBe('Awesome job, Sarah!');
+    });
+
+    it('should prefer JSON when listed first in Accept', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/awesome/Sarah',
+        headers: { accept: 'application/json, text/plain' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('application/json');
+    });
+
+    it('should return text/plain for weekly endpoint', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/weekly/Mike',
+        headers: { accept: 'text/plain' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/plain');
+      expect(response.body).toMatch(/Awesome job this week, Mike/);
+    });
+
+    it('should return text/plain for random endpoint', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/random/Alex',
+        headers: { accept: 'text/plain' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/plain');
+      expect(response.body).toContain('Alex');
+    });
+
+    it('should return text/plain for message type endpoint', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/message/animal/Sarah',
+        headers: { accept: 'text/plain' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/plain');
+      expect(response.body).toContain('Sarah');
+    });
+
+    it('should include attribution in text/plain response', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/awesome/Sarah?from=Mike',
+        headers: { accept: 'text/plain' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('text/plain');
+      expect(response.body).toBe('Awesome job, Sarah! - Mike');
+    });
+  });
+
   describe('with tough love disabled', () => {
     beforeEach(async () => {
       await app.close();
