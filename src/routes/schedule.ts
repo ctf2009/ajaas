@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { Config } from '../config.js';
 import { Storage } from '../storage/interface.js';
 import { TokenService } from '../auth/token.js';
-import { createAuthMiddleware, AuthenticatedRequest } from '../auth/middleware.js';
+import { createAuthMiddleware } from '../auth/middleware.js';
 import { Scheduler } from '../scheduler/index.js';
 
 interface ScheduleRouteOptions extends FastifyPluginOptions {
@@ -10,6 +10,20 @@ interface ScheduleRouteOptions extends FastifyPluginOptions {
   storage: Storage;
   tokenService: TokenService;
   scheduler: Scheduler;
+}
+
+interface CreateScheduleBody {
+  recipient: string;
+  recipientEmail: string;
+  endpoint: string;
+  messageType?: string;
+  from?: string;
+  cron: string;
+  deliveryMethod?: 'email';
+}
+
+interface IdParam {
+  id: string;
 }
 
 const createScheduleBodySchema = {
@@ -58,11 +72,17 @@ const scheduleResponseSchema = {
   },
 } as const;
 
+const idParamSchema = {
+  type: 'object',
+  properties: { id: { type: 'string' } },
+  required: ['id'],
+} as const;
+
 export async function scheduleRoutes(
   fastify: FastifyInstance,
   options: ScheduleRouteOptions
 ): Promise<void> {
-  const { config, storage, tokenService, scheduler } = options;
+  const { storage, tokenService, scheduler } = options;
 
   const requireAuth = createAuthMiddleware(
     tokenService,
@@ -70,17 +90,7 @@ export async function scheduleRoutes(
   );
 
   // POST /api/schedule - Create a new schedule
-  fastify.post<{
-    Body: {
-      recipient: string;
-      recipientEmail: string;
-      endpoint: string;
-      messageType?: string;
-      from?: string;
-      cron: string;
-      deliveryMethod?: 'email';
-    };
-  }>(
+  fastify.post<{ Body: CreateScheduleBody }>(
     '/schedule',
     {
       schema: {
@@ -98,9 +108,9 @@ export async function scheduleRoutes(
       },
       preHandler: requireAuth('schedule'),
     },
-    async (request: AuthenticatedRequest, reply) => {
+    async (request, reply) => {
       const { recipient, recipientEmail, endpoint, messageType, from, cron, deliveryMethod } =
-        request.body as any;
+        request.body;
 
       // Validate cron expression
       const nextRun = scheduler.calculateNextRun(cron);
@@ -157,7 +167,7 @@ export async function scheduleRoutes(
       },
       preHandler: requireAuth('schedule'),
     },
-    async (request: AuthenticatedRequest) => {
+    async (request) => {
       const schedules = storage.listSchedules(request.tokenPayload!.sub);
       return {
         schedules: schedules.map((s) => ({
@@ -170,18 +180,14 @@ export async function scheduleRoutes(
   );
 
   // GET /api/schedule/:id - Get a specific schedule
-  fastify.get<{ Params: { id: string } }>(
+  fastify.get<{ Params: IdParam }>(
     '/schedule/:id',
     {
       schema: {
         tags: ['schedule'],
         summary: 'Get a scheduled message',
         security: [{ bearerAuth: [] }],
-        params: {
-          type: 'object',
-          properties: { id: { type: 'string' } },
-          required: ['id'],
-        },
+        params: idParamSchema,
         response: {
           200: scheduleResponseSchema,
           404: {
@@ -192,8 +198,8 @@ export async function scheduleRoutes(
       },
       preHandler: requireAuth('schedule'),
     },
-    async (request: AuthenticatedRequest, reply) => {
-      const { id } = request.params as { id: string };
+    async (request, reply) => {
+      const { id } = request.params;
       const schedule = storage.getSchedule(id);
 
       if (!schedule) {
@@ -214,18 +220,14 @@ export async function scheduleRoutes(
   );
 
   // DELETE /api/schedule/:id - Delete a schedule
-  fastify.delete<{ Params: { id: string } }>(
+  fastify.delete<{ Params: IdParam }>(
     '/schedule/:id',
     {
       schema: {
         tags: ['schedule'],
         summary: 'Delete a scheduled message',
         security: [{ bearerAuth: [] }],
-        params: {
-          type: 'object',
-          properties: { id: { type: 'string' } },
-          required: ['id'],
-        },
+        params: idParamSchema,
         response: {
           200: {
             type: 'object',
@@ -239,8 +241,8 @@ export async function scheduleRoutes(
       },
       preHandler: requireAuth('schedule'),
     },
-    async (request: AuthenticatedRequest, reply) => {
-      const { id } = request.params as { id: string };
+    async (request, reply) => {
+      const { id } = request.params;
       const schedule = storage.getSchedule(id);
 
       if (!schedule) {

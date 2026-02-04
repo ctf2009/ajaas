@@ -1,8 +1,10 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { TokenService, TokenPayload, Role } from './token.js';
 
-export interface AuthenticatedRequest extends FastifyRequest {
-  tokenPayload?: TokenPayload;
+declare module 'fastify' {
+  interface FastifyRequest {
+    tokenPayload?: TokenPayload;
+  }
 }
 
 export function createAuthMiddleware(
@@ -10,7 +12,7 @@ export function createAuthMiddleware(
   isRevoked: (jti: string) => boolean
 ) {
   return function requireAuth(requiredRole: Role) {
-    return async (request: AuthenticatedRequest, reply: FastifyReply) => {
+    return async (request: FastifyRequest, reply: FastifyReply) => {
       const authHeader = request.headers.authorization;
 
       if (!authHeader) {
@@ -48,7 +50,7 @@ export function createAuthMiddleware(
 }
 
 export function createOptionalAuthMiddleware(tokenService: TokenService) {
-  return async (request: AuthenticatedRequest) => {
+  return async (request: FastifyRequest) => {
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {

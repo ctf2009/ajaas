@@ -20,34 +20,20 @@ const __dirname = dirname(__filename);
 
 const config = loadConfig();
 
-// Initialize storage
-const storage = new SQLiteStorage(config.database.path);
+const needsStorage = config.security.enabled || config.endpoints.schedule.enabled;
+
+// Initialize storage (needed for token revocation and/or scheduling)
+let storage: SQLiteStorage | null = null;
+if (needsStorage) {
+  storage = new SQLiteStorage(config.database.path);
+}
 
 // Initialize services
 const messageService = new MessageService(config.messages.toughLove);
 
-// Initialize email delivery
-const emailDelivery = config.smtp.host
-  ? new NodemailerDelivery({
-      host: config.smtp.host,
-      port: config.smtp.port,
-      secure: config.smtp.secure,
-      auth: config.smtp.user
-        ? {
-            user: config.smtp.user,
-            pass: config.smtp.pass,
-          }
-        : undefined,
-      from: config.smtp.from,
-    })
-  : new ConsoleDelivery();
-
-// Initialize scheduler
-const scheduler = new Scheduler(storage, messageService, emailDelivery);
-
 // Initialize token service (only if security is enabled or schedule endpoints are enabled)
 let tokenService: TokenService | null = null;
-if (config.security.enabled || config.endpoints.schedule.enabled) {
+if (needsStorage) {
   if (!config.security.encryptionKey) {
     console.warn(
       'WARNING: ENCRYPTION_KEY not set. Security features will not work properly.'
@@ -55,6 +41,27 @@ if (config.security.enabled || config.endpoints.schedule.enabled) {
   } else {
     tokenService = new TokenService(config.security.encryptionKey);
   }
+}
+
+// Initialize scheduler and email delivery (only if scheduling is enabled)
+let scheduler: Scheduler | null = null;
+if (config.endpoints.schedule.enabled && storage) {
+  const emailDelivery = config.smtp.host
+    ? new NodemailerDelivery({
+        host: config.smtp.host,
+        port: config.smtp.port,
+        secure: config.smtp.secure,
+        auth: config.smtp.user
+          ? {
+              user: config.smtp.user,
+              pass: config.smtp.pass,
+            }
+          : undefined,
+        from: config.smtp.from,
+      })
+    : new ConsoleDelivery();
+
+  scheduler = new Scheduler(storage, messageService, emailDelivery);
 }
 
 const fastify = Fastify({
@@ -128,8 +135,8 @@ if (config.rateLimit.enabled) {
 // Register message routes
 await fastify.register(messageRoutes, { prefix: '/api', config });
 
-// Register schedule routes (only if enabled and token service is available)
-if (config.endpoints.schedule.enabled && tokenService) {
+// Register schedule routes (only if enabled and dependencies are available)
+if (config.endpoints.schedule.enabled && tokenService && storage && scheduler) {
   await fastify.register(scheduleRoutes, {
     prefix: '/api',
     config,
@@ -180,8 +187,8 @@ fastify.get('/health', async () => {
 // Graceful shutdown
 const shutdown = async () => {
   console.log('Shutting down...');
-  scheduler.stop();
-  storage.close();
+  scheduler?.stop();
+  storage?.close();
   await fastify.close();
   process.exit(0);
 };

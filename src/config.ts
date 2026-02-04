@@ -44,31 +44,58 @@ function getEnvBoolean(key: string, defaultValue: boolean): boolean {
   return value.toLowerCase() === 'true' || value === '1';
 }
 
+export class ConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigError';
+  }
+}
+
 export function loadConfig(envFilePath?: string): Config {
   // Load .env file first — existing env vars take precedence
   loadEnvFile(envFilePath);
 
+  const port = parseInt(process.env.PORT || '3000', 10);
+  if (isNaN(port) || port < 0 || port > 65535) {
+    throw new ConfigError(`Invalid PORT: must be a number between 0 and 65535`);
+  }
+
+  const securityEnabled = getEnvBoolean('SECURITY_ENABLED', false);
+  const scheduleEnabled = getEnvBoolean('SCHEDULE_ENABLED', true);
+  const encryptionKey = process.env.ENCRYPTION_KEY || '';
+
+  if ((securityEnabled || scheduleEnabled) && encryptionKey && encryptionKey.length < 32) {
+    throw new ConfigError(
+      `ENCRYPTION_KEY must be at least 32 characters (got ${encryptionKey.length})`
+    );
+  }
+
+  const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX || '100', 10);
+  if (isNaN(rateLimitMax) || rateLimitMax < 1) {
+    throw new ConfigError(`Invalid RATE_LIMIT_MAX: must be a positive number`);
+  }
+
   return {
-    port: parseInt(process.env.PORT || '3000', 10),
+    port,
     host: process.env.HOST || '0.0.0.0',
     web: {
       enabled: getEnvBoolean('WEB_ENABLED', true),
     },
     endpoints: {
       schedule: {
-        enabled: getEnvBoolean('SCHEDULE_ENABLED', true),
+        enabled: scheduleEnabled,
       },
     },
     security: {
-      enabled: getEnvBoolean('SECURITY_ENABLED', false),
-      encryptionKey: process.env.ENCRYPTION_KEY || '',
+      enabled: securityEnabled,
+      encryptionKey,
     },
     messages: {
       toughLove: getEnvBoolean('TOUGH_LOVE_ENABLED', true),
     },
     rateLimit: {
       enabled: getEnvBoolean('RATE_LIMIT_ENABLED', false),
-      max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+      max: rateLimitMax,
       timeWindow: process.env.RATE_LIMIT_WINDOW || '1 minute',
     },
     database: {
