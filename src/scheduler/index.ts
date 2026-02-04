@@ -2,11 +2,13 @@ import { Cron } from 'croner';
 import { Storage, Schedule } from '../storage/interface.js';
 import { MessageService } from '../services/messages.js';
 import { EmailDelivery } from '../delivery/email.js';
+import { WebhookDelivery } from '../delivery/webhook.js';
 
 export class Scheduler {
   private storage: Storage;
   private messageService: MessageService;
   private emailDelivery: EmailDelivery;
+  private webhookDelivery: WebhookDelivery;
   private pollInterval: number;
   private timer: ReturnType<typeof setInterval> | null = null;
 
@@ -14,11 +16,13 @@ export class Scheduler {
     storage: Storage,
     messageService: MessageService,
     emailDelivery: EmailDelivery,
+    webhookDelivery?: WebhookDelivery,
     pollIntervalMs: number = 60000 // Default: check every minute
   ) {
     this.storage = storage;
     this.messageService = messageService;
     this.emailDelivery = emailDelivery;
+    this.webhookDelivery = webhookDelivery || new WebhookDelivery();
     this.pollInterval = pollIntervalMs;
   }
 
@@ -51,14 +55,26 @@ export class Scheduler {
       const message = this.generateMessage(schedule);
 
       // Send via appropriate delivery method
-      if (schedule.deliveryMethod === 'email') {
+      if (schedule.deliveryMethod === 'webhook' && schedule.webhookUrl) {
+        await this.webhookDelivery.sendMessage(
+          schedule.webhookUrl,
+          {
+            recipient: schedule.recipient,
+            message,
+            endpoint: schedule.endpoint,
+            messageType: schedule.messageType,
+            from: schedule.from,
+            timestamp: new Date().toISOString(),
+          },
+          schedule.webhookSecret
+        );
+      } else {
         await this.emailDelivery.sendMessage(
           schedule.recipientEmail,
           schedule.recipient,
           message
         );
       }
-      // Discord delivery would go here when implemented
 
       console.log(`Executed schedule ${schedule.id} for ${schedule.recipient}`);
 

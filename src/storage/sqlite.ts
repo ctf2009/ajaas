@@ -30,6 +30,8 @@ export class SQLiteStorage implements Storage {
         cron TEXT NOT NULL,
         next_run INTEGER NOT NULL,
         delivery_method TEXT NOT NULL DEFAULT 'email',
+        webhook_url TEXT,
+        webhook_secret TEXT,
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL
       );
@@ -37,6 +39,21 @@ export class SQLiteStorage implements Storage {
       CREATE INDEX IF NOT EXISTS idx_schedules_next_run ON schedules(next_run);
       CREATE INDEX IF NOT EXISTS idx_schedules_created_by ON schedules(created_by);
     `);
+
+    // Add webhook columns to existing databases
+    this.migrateWebhookColumns();
+  }
+
+  private migrateWebhookColumns(): void {
+    const columns = this.db.pragma('table_info(schedules)') as { name: string }[];
+    const columnNames = columns.map((c) => c.name);
+
+    if (!columnNames.includes('webhook_url')) {
+      this.db.exec('ALTER TABLE schedules ADD COLUMN webhook_url TEXT');
+    }
+    if (!columnNames.includes('webhook_secret')) {
+      this.db.exec('ALTER TABLE schedules ADD COLUMN webhook_secret TEXT');
+    }
   }
 
   private encryptField(value: string): string {
@@ -70,8 +87,9 @@ export class SQLiteStorage implements Storage {
     const stmt = this.db.prepare(`
       INSERT INTO schedules (
         id, recipient, recipient_email, endpoint, message_type, from_name,
-        cron, next_run, delivery_method, created_by, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cron, next_run, delivery_method, webhook_url, webhook_secret,
+        created_by, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -84,6 +102,8 @@ export class SQLiteStorage implements Storage {
       schedule.cron,
       schedule.nextRun,
       schedule.deliveryMethod,
+      schedule.webhookUrl ? this.encryptField(schedule.webhookUrl) : null,
+      schedule.webhookSecret ? this.encryptField(schedule.webhookSecret) : null,
       schedule.createdBy,
       createdAt
     );
@@ -136,6 +156,8 @@ export class SQLiteStorage implements Storage {
       cron: row.cron,
       nextRun: row.next_run,
       deliveryMethod: row.delivery_method,
+      webhookUrl: row.webhook_url ? this.decryptField(row.webhook_url) : undefined,
+      webhookSecret: row.webhook_secret ? this.decryptField(row.webhook_secret) : undefined,
       createdBy: row.created_by,
       createdAt: row.created_at,
     };

@@ -7,7 +7,9 @@ export interface Schedule {
   from?: string;
   cron: string;
   nextRun: number; // Unix timestamp in seconds
-  deliveryMethod: 'email' | 'discord';
+  deliveryMethod: 'email' | 'webhook';
+  webhookUrl?: string;
+  webhookSecret?: string;
   createdBy: string;
   createdAt: number;
 }

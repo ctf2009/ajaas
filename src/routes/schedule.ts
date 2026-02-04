@@ -19,7 +19,9 @@ interface CreateScheduleBody {
   messageType?: string;
   from?: string;
   cron: string;
-  deliveryMethod?: 'email';
+  deliveryMethod?: 'email' | 'webhook';
+  webhookUrl?: string;
+  webhookSecret?: string;
 }
 
 interface IdParam {
@@ -49,9 +51,18 @@ const createScheduleBodySchema = {
     },
     deliveryMethod: {
       type: 'string',
-      enum: ['email'],
+      enum: ['email', 'webhook'],
       default: 'email',
       description: 'Delivery method',
+    },
+    webhookUrl: {
+      type: 'string',
+      format: 'uri',
+      description: 'Webhook URL (required if deliveryMethod is "webhook")',
+    },
+    webhookSecret: {
+      type: 'string',
+      description: 'Optional secret for HMAC-SHA256 webhook signature',
     },
   },
 } as const;
@@ -68,6 +79,8 @@ const scheduleResponseSchema = {
     cron: { type: 'string' },
     nextRun: { type: 'string', format: 'date-time' },
     deliveryMethod: { type: 'string' },
+    webhookUrl: { type: 'string' },
+    webhookSecretSet: { type: 'boolean', description: 'Whether a webhook secret is configured' },
     createdAt: { type: 'string', format: 'date-time' },
   },
 } as const;
@@ -77,6 +90,16 @@ const idParamSchema = {
   properties: { id: { type: 'string' } },
   required: ['id'],
 } as const;
+
+function formatScheduleResponse(schedule: any) {
+  const { webhookSecret, ...rest } = schedule;
+  return {
+    ...rest,
+    nextRun: new Date(schedule.nextRun * 1000).toISOString(),
+    createdAt: new Date(schedule.createdAt * 1000).toISOString(),
+    webhookSecretSet: !!webhookSecret,
+  };
+}
 
 export async function scheduleRoutes(
   fastify: FastifyInstance,
@@ -109,8 +132,10 @@ export async function scheduleRoutes(
       preHandler: requireAuth('schedule'),
     },
     async (request, reply) => {
-      const { recipient, recipientEmail, endpoint, messageType, from, cron, deliveryMethod } =
-        request.body;
+      const {
+        recipient, recipientEmail, endpoint, messageType, from,
+        cron, deliveryMethod, webhookUrl, webhookSecret,
+      } = request.body;
 
       // Validate cron expression
       const nextRun = scheduler.calculateNextRun(cron);
@@ -125,6 +150,14 @@ export async function scheduleRoutes(
         });
       }
 
+      // Validate webhookUrl is provided when deliveryMethod is 'webhook'
+      const method = deliveryMethod || 'email';
+      if (method === 'webhook' && !webhookUrl) {
+        return reply.status(400).send({
+          error: 'webhookUrl is required when deliveryMethod is "webhook"',
+        });
+      }
+
       const schedule = storage.createSchedule({
         recipient,
         recipientEmail,
@@ -133,15 +166,13 @@ export async function scheduleRoutes(
         from,
         cron,
         nextRun,
-        deliveryMethod: deliveryMethod || 'email',
+        deliveryMethod: method,
+        webhookUrl,
+        webhookSecret,
         createdBy: request.tokenPayload!.sub,
       });
 
-      return reply.status(201).send({
-        ...schedule,
-        nextRun: new Date(schedule.nextRun * 1000).toISOString(),
-        createdAt: new Date(schedule.createdAt * 1000).toISOString(),
-      });
+      return reply.status(201).send(formatScheduleResponse(schedule));
     }
   );
 
@@ -170,11 +201,7 @@ export async function scheduleRoutes(
     async (request) => {
       const schedules = storage.listSchedules(request.tokenPayload!.sub);
       return {
-        schedules: schedules.map((s) => ({
-          ...s,
-          nextRun: new Date(s.nextRun * 1000).toISOString(),
-          createdAt: new Date(s.createdAt * 1000).toISOString(),
-        })),
+        schedules: schedules.map(formatScheduleResponse),
       };
     }
   );
@@ -211,11 +238,7 @@ export async function scheduleRoutes(
         return reply.status(404).send({ error: 'Schedule not found' });
       }
 
-      return {
-        ...schedule,
-        nextRun: new Date(schedule.nextRun * 1000).toISOString(),
-        createdAt: new Date(schedule.createdAt * 1000).toISOString(),
-      };
+      return formatScheduleResponse(schedule);
     }
   );
 
