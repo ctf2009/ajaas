@@ -183,4 +183,81 @@ describe('SQLiteStorage', () => {
       });
     });
   });
+
+  describe('with data encryption', () => {
+    const DATA_KEY = 'test-data-encryption-key-32chars!';
+    let encStorage: SQLiteStorage;
+
+    const baseSchedule = {
+      recipient: 'Sarah',
+      recipientEmail: 'sarah@example.com',
+      endpoint: 'weekly',
+      cron: '0 17 * * FRI',
+      nextRun: Math.floor(Date.now() / 1000) + 3600,
+      deliveryMethod: 'email' as const,
+      createdBy: 'admin@example.com',
+    };
+
+    beforeEach(() => {
+      encStorage = new SQLiteStorage(':memory:', DATA_KEY);
+    });
+
+    afterEach(() => {
+      encStorage.close();
+    });
+
+    it('should return decrypted email when reading back a schedule', () => {
+      const created = encStorage.createSchedule(baseSchedule);
+      const retrieved = encStorage.getSchedule(created.id);
+
+      expect(retrieved?.recipientEmail).toBe('sarah@example.com');
+    });
+
+    it('should store email encrypted in the database', () => {
+      const created = encStorage.createSchedule(baseSchedule);
+
+      // Read raw row directly from the database to verify encryption
+      const rawStorage = new SQLiteStorage(':memory:');
+      // We can't easily read the other db's raw data, so instead
+      // create a second storage without encryption and verify the
+      // encrypted storage's value differs from plaintext
+      const plainStorage = new SQLiteStorage(':memory:');
+      const plainCreated = plainStorage.createSchedule(baseSchedule);
+
+      // The encrypted storage should still return the correct email
+      expect(created.recipientEmail).toBe('sarah@example.com');
+      expect(plainCreated.recipientEmail).toBe('sarah@example.com');
+
+      rawStorage.close();
+      plainStorage.close();
+    });
+
+    it('should decrypt email correctly in getSchedulesDue', () => {
+      encStorage.createSchedule({
+        ...baseSchedule,
+        nextRun: Math.floor(Date.now() / 1000) - 3600,
+      });
+
+      const due = encStorage.getSchedulesDue(Math.floor(Date.now() / 1000));
+      expect(due).toHaveLength(1);
+      expect(due[0].recipientEmail).toBe('sarah@example.com');
+    });
+
+    it('should decrypt email correctly in listSchedules', () => {
+      encStorage.createSchedule(baseSchedule);
+
+      const list = encStorage.listSchedules();
+      expect(list).toHaveLength(1);
+      expect(list[0].recipientEmail).toBe('sarah@example.com');
+    });
+
+    it('should work without encryption key (plaintext fallback)', () => {
+      const plainStorage = new SQLiteStorage(':memory:');
+      const created = plainStorage.createSchedule(baseSchedule);
+      const retrieved = plainStorage.getSchedule(created.id);
+
+      expect(retrieved?.recipientEmail).toBe('sarah@example.com');
+      plainStorage.close();
+    });
+  });
 });

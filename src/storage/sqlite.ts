@@ -1,12 +1,15 @@
 import Database from 'better-sqlite3';
 import { randomBytes } from 'crypto';
 import { Storage, Schedule, RevokedToken } from './interface.js';
+import { deriveKeyBuffer, encrypt, decrypt } from '../crypto.js';
 
 export class SQLiteStorage implements Storage {
   private db: Database.Database;
+  private dataKey: Buffer | null;
 
-  constructor(dbPath: string = ':memory:') {
+  constructor(dbPath: string = ':memory:', dataEncryptionKey?: string) {
     this.db = new Database(dbPath);
+    this.dataKey = dataEncryptionKey ? deriveKeyBuffer(dataEncryptionKey) : null;
     this.initialize();
   }
 
@@ -34,6 +37,16 @@ export class SQLiteStorage implements Storage {
       CREATE INDEX IF NOT EXISTS idx_schedules_next_run ON schedules(next_run);
       CREATE INDEX IF NOT EXISTS idx_schedules_created_by ON schedules(created_by);
     `);
+  }
+
+  private encryptField(value: string): string {
+    if (!this.dataKey) return value;
+    return encrypt(value, this.dataKey);
+  }
+
+  private decryptField(value: string): string {
+    if (!this.dataKey) return value;
+    return decrypt(value, this.dataKey) ?? value;
   }
 
   // Revocation methods
@@ -64,7 +77,7 @@ export class SQLiteStorage implements Storage {
     stmt.run(
       id,
       schedule.recipient,
-      schedule.recipientEmail,
+      this.encryptField(schedule.recipientEmail),
       schedule.endpoint,
       schedule.messageType || null,
       schedule.from || null,
@@ -87,7 +100,7 @@ export class SQLiteStorage implements Storage {
   getSchedulesDue(beforeTimestamp: number): Schedule[] {
     const stmt = this.db.prepare('SELECT * FROM schedules WHERE next_run <= ?');
     const rows = stmt.all(beforeTimestamp) as any[];
-    return rows.map(this.rowToSchedule);
+    return rows.map((row) => this.rowToSchedule(row));
   }
 
   updateScheduleNextRun(id: string, nextRun: number): void {
@@ -105,18 +118,18 @@ export class SQLiteStorage implements Storage {
     if (createdBy) {
       const stmt = this.db.prepare('SELECT * FROM schedules WHERE created_by = ? ORDER BY created_at DESC');
       const rows = stmt.all(createdBy) as any[];
-      return rows.map(this.rowToSchedule);
+      return rows.map((row) => this.rowToSchedule(row));
     }
     const stmt = this.db.prepare('SELECT * FROM schedules ORDER BY created_at DESC');
     const rows = stmt.all() as any[];
-    return rows.map(this.rowToSchedule);
+    return rows.map((row) => this.rowToSchedule(row));
   }
 
   private rowToSchedule(row: any): Schedule {
     return {
       id: row.id,
       recipient: row.recipient,
-      recipientEmail: row.recipient_email,
+      recipientEmail: this.decryptField(row.recipient_email),
       endpoint: row.endpoint,
       messageType: row.message_type || undefined,
       from: row.from_name || undefined,

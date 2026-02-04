@@ -34,6 +34,7 @@ export interface Config {
   };
   database: {
     path: string;
+    dataEncryptionKey: string;
   };
   smtp: SmtpConfig;
 }
@@ -70,6 +71,14 @@ export function loadConfig(envFilePath?: string): Config {
     );
   }
 
+  const dataEncryptionKey = process.env.DATA_ENCRYPTION_KEY || '';
+
+  if (dataEncryptionKey && dataEncryptionKey.length < 32) {
+    throw new ConfigError(
+      `DATA_ENCRYPTION_KEY must be at least 32 characters (got ${dataEncryptionKey.length})`
+    );
+  }
+
   const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX || '100', 10);
   if (isNaN(rateLimitMax) || rateLimitMax < 1) {
     throw new ConfigError(`Invalid RATE_LIMIT_MAX: must be a positive number`);
@@ -100,6 +109,7 @@ export function loadConfig(envFilePath?: string): Config {
     },
     database: {
       path: process.env.DB_PATH || ':memory:',
+      dataEncryptionKey,
     },
     smtp: {
       host: process.env.SMTP_HOST || '',

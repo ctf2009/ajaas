@@ -16,7 +16,7 @@ describe('Message Routes', () => {
       security: { enabled: false, encryptionKey: '' },
       messages: { toughLove },
       rateLimit: { enabled: false, max: 100, timeWindow: '1 minute' },
-      database: { path: ':memory:' },
+      database: { path: ':memory:', dataEncryptionKey: '' },
       smtp: { host: '', port: 587, secure: false, user: '', pass: '', from: 'ajaas@example.com' },
     };
     await fastify.register(messageRoutes, { prefix: '/api', config });

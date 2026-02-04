@@ -25,7 +25,13 @@ const needsStorage = config.security.enabled || config.endpoints.schedule.enable
 // Initialize storage (needed for token revocation and/or scheduling)
 let storage: SQLiteStorage | null = null;
 if (needsStorage) {
-  storage = new SQLiteStorage(config.database.path);
+  storage = new SQLiteStorage(config.database.path, config.database.dataEncryptionKey || undefined);
+
+  if (!config.database.dataEncryptionKey) {
+    console.warn(
+      'WARNING: DATA_ENCRYPTION_KEY not set. Sensitive schedule data (e.g. email addresses) will be stored unencrypted.'
+    );
+  }
 }
 
 // Initialize services
