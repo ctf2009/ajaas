@@ -21,24 +21,24 @@ const __dirname = dirname(__filename);
 const config = loadConfig();
 
 // Initialize storage
-const storage = new SQLiteStorage(process.env.DB_PATH || ':memory:');
+const storage = new SQLiteStorage(config.database.path);
 
 // Initialize services
 const messageService = new MessageService(config.messages.toughLove);
 
 // Initialize email delivery
-const emailDelivery = process.env.SMTP_HOST
+const emailDelivery = config.smtp.host
   ? new NodemailerDelivery({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: process.env.SMTP_USER
+      host: config.smtp.host,
+      port: config.smtp.port,
+      secure: config.smtp.secure,
+      auth: config.smtp.user
         ? {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS || '',
+            user: config.smtp.user,
+            pass: config.smtp.pass,
           }
         : undefined,
-      from: process.env.SMTP_FROM || 'ajaas@example.com',
+      from: config.smtp.from,
     })
   : new ConsoleDelivery();
 
