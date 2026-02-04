@@ -32,7 +32,7 @@
     "better-sqlite3": "^11.7.0",
     "croner": "^9.0.0",
     "fastify": "^5.2.1",
-    "nodemailer": "^6.9.16"
+    "nodemailer": "^7.0.13"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
