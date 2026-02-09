@@ -651,18 +651,62 @@ if (config.web.enabled) {
 
 ### Build Pipeline
 
-Both deployment targets use the same web build:
+AJAAS already uses Vite for the web frontend. The [`@cloudflare/vite-plugin`](https://developers.cloudflare.com/workers/vite-plugin/) (GA since April 2025) unifies the entire CF build — a single `vite build` produces **both** the React SPA client assets **and** the bundled Worker code. It also auto-populates `assets.directory` in the output config, so you don't specify it manually.
+
+There's even a first-class [Hono + CF Workers + Vite template](https://developers.cloudflare.com/workers/framework-guides/web-apps/more-web-frameworks/hono/) which closely matches AJAAS's target architecture.
+
+**CF Workers path** — unified Vite build:
 
 ```bash
-npm run build:web    # Vite builds React SPA → dist/web/
+vite build        # Builds React SPA + bundles Worker entry → dist/
+wrangler deploy   # Deploys using the output wrangler.json from vite build
 ```
 
-The CF deploy script must build both API and web before deploying:
+The plugin reads `wrangler.jsonc` as **input** and generates an output `wrangler.json` alongside the build artefacts. This output config has `assets.directory` auto-populated to point at the client build output. `wrangler deploy` picks this up automatically.
+
+**Docker / Node.js path** — separate builds (unchanged):
 
 ```bash
-# package.json scripts
+npm run build:api   # tsc → dist/
+npm run build:web   # vite build (src/web) → dist/web/
+node dist/index.js  # Start server
+```
+
+**Root `vite.config.ts` (CF Workers build):**
+
+```typescript
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { cloudflare } from '@cloudflare/vite-plugin';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    cloudflare(),   // Reads wrangler.jsonc, bundles Worker, handles assets
+  ],
+});
+```
+
+The plugin looks for `wrangler.jsonc` in the project root. The `main` field in `wrangler.jsonc` points to the Worker entry (`src/entrypoints/worker.ts`), and the plugin bundles it with Vite's bundler — no separate `tsc` or `tsconfig.worker.json` needed.
+
+**Local development:**
+
+```bash
+vite dev   # HMR for React SPA + Worker runs in workerd (real CF runtime)
+```
+
+This gives you Durable Objects, SQLite, Alarms, and all CF bindings working locally in the actual `workerd` runtime — not a Node.js approximation. Much more reliable than `wrangler dev` for a full-stack app.
+
+**`package.json` scripts:**
+
+```json
 {
-  "deploy:cf": "npm run build:api && npm run build:web && wrangler deploy"
+  "dev": "vite dev",
+  "dev:docker": "tsx watch src/entrypoints/node.ts",
+  "build": "vite build",
+  "build:docker": "tsc && npm --prefix src/web run build",
+  "deploy:cf": "vite build && wrangler deploy",
+  "start": "node dist/entrypoints/node.js"
 }
 ```
 
@@ -681,12 +725,15 @@ The React SPA itself (`src/web/`) requires **no changes**. It's a client-side ap
 
 ## 9. Configuration
 
-### `wrangler.jsonc` (CF Workers config)
+### `wrangler.jsonc` (CF Workers config — input file)
+
+This is the **input** config. When using `@cloudflare/vite-plugin`, `vite build` reads this and generates an output `wrangler.json` with build artefact paths populated automatically.
 
 ```jsonc
 {
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ajaas",
-  "main": "dist/worker.js",
+  "main": "src/entrypoints/worker.ts",
   "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat"],
 
@@ -700,7 +747,6 @@ The React SPA itself (`src/web/`) requires **no changes**. It's a client-side ap
   },
 
   "assets": {
-    "directory": "./dist/web",
     "not_found_handling": "single-page-application"
   },
 
@@ -722,7 +768,11 @@ The React SPA itself (`src/web/`) requires **no changes**. It's a client-side ap
 }
 ```
 
-Note: `WEB_ENABLED` is absent from `vars` — on CF Workers the web UI is always served by the CDN (see [Section 8](#8-static-assets--web-ui)). It remains a Docker/Node.js-only toggle.
+Key points:
+- **`main`** points to the TypeScript source — Vite bundles it (no `tsc` step)
+- **`assets.directory`** is omitted — `vite build` auto-populates it in the output config
+- **`assets.not_found_handling`** is set for SPA fallback
+- **`WEB_ENABLED`** is absent — on CF Workers the web UI is always served by the CDN (see [Section 8](#8-static-assets--web-ui))
 
 ### TypeScript Bindings
 
@@ -791,19 +841,19 @@ interface Env {
 │   ├── types/
 │   │   └── env.ts                # CF Worker Env type definitions
 │   │
-│   └── web/                      # React SPA (unchanged)
-│       ├── src/
-│       ├── vite.config.ts
+│   └── web/                      # React SPA
+│       ├── src/                  # React components (unchanged)
+│       ├── vite.config.ts        # Docker-only web build (kept for standalone SPA build)
 │       └── package.json
 │
 ├── scripts/
 │   └── generate-key.ts           # CLI key generation (unchanged)
 │
-├── wrangler.jsonc                # CF Workers configuration
+├── vite.config.ts                # Root Vite config with @cloudflare/vite-plugin (CF build)
+├── wrangler.jsonc                # CF Workers input configuration
 ├── Dockerfile                    # Docker build (updated for Hono)
 ├── package.json
-├── tsconfig.json
-├── tsconfig.worker.json          # Separate TS config for Worker build
+├── tsconfig.json                 # Node.js/Docker TypeScript config (tsc)
 ├── vitest.config.ts
 ├── .dev.vars.example             # CF local dev secrets template
 ├── .env.example                  # Docker/Node.js env template
@@ -820,7 +870,20 @@ interface Env {
 
 4. **`src/storage/do-sqlite.ts`** — A new `Storage` implementation using the DO's `SqlStorage` API.
 
-5. **Separate `tsconfig.worker.json`** — Worker builds target `esnext`/`webworker` with CF-specific types. The Node.js build continues using the existing `tsconfig.json`.
+5. **Root `vite.config.ts`** — The CF build config. Uses `@cloudflare/vite-plugin` which reads `wrangler.jsonc`, bundles the Worker entry point from TypeScript source, builds the React SPA, and produces everything needed for `wrangler deploy`. No separate `tsconfig.worker.json` needed — Vite handles the bundling.
+
+6. **`src/web/vite.config.ts`** — Retained for the Docker path's standalone SPA build (`npm run build:web`). The CF path doesn't use this — the root `vite.config.ts` handles both client and Worker.
+
+### Two Build Pipelines
+
+| | CF Workers | Docker / Node.js |
+|--|-----------|------------------|
+| **Vite config** | Root `vite.config.ts` (with `@cloudflare/vite-plugin`) | `src/web/vite.config.ts` (SPA only) |
+| **API build** | Vite bundles `src/entrypoints/worker.ts` | `tsc` compiles to `dist/` |
+| **Web build** | Vite builds React SPA alongside Worker | Separate `npm run build:web` |
+| **Output** | Single `dist/` with Worker + assets + output `wrangler.json` | `dist/` (API) + `dist/web/` (SPA) |
+| **Local dev** | `vite dev` (runs in `workerd` — real CF runtime) | `tsx watch src/entrypoints/node.ts` |
+| **Deploy** | `wrangler deploy` (reads output `wrangler.json`) | `docker build` + `docker run` |
 
 ---
 
@@ -863,32 +926,35 @@ interface Env {
 **Goal:** AJAAS runs on CF Workers with Durable Objects for storage and alarms for scheduling.
 
 **Tasks:**
-- [ ] Create `wrangler.jsonc` configuration
-- [ ] Create `tsconfig.worker.json` for Worker-specific TypeScript compilation
+- [ ] Add `@cloudflare/vite-plugin` and `wrangler` dependencies
+- [ ] Create root `vite.config.ts` with `cloudflare()` plugin + React
+- [ ] Create `wrangler.jsonc` input configuration (DO bindings, vars, assets, migrations)
 - [ ] Create `src/types/env.ts` with CF binding type definitions
-- [ ] Create `src/entrypoints/worker.ts` — Worker module entry point
+- [ ] Create `src/entrypoints/worker.ts` — Worker module entry point (exports app + DO class)
 - [ ] Create `src/durable-objects/schedule-manager.ts` — DO with SQLite storage + alarm
 - [ ] Create `src/storage/do-sqlite.ts` — Storage implementation using DO SQLite API
 - [ ] Implement `RpcStorageClient` — async bridge from Worker to DO
 - [ ] Create `src/delivery/email-api.ts` — fetch-based email delivery (Resend)
-- [ ] Add build script for Worker (`wrangler deploy` or custom bundling)
 - [ ] Add `.dev.vars.example` template
-- [ ] Test with `wrangler dev` locally
-- [ ] Add `npm run deploy:cf` script
+- [ ] Verify `vite dev` runs locally with workerd (DO, SQLite, Alarms working)
+- [ ] Verify `vite build` produces Worker + SPA output
+- [ ] Verify `wrangler deploy` works end-to-end
+- [ ] Add `deploy:cf` and `dev` scripts to `package.json`
 
 ### Phase 4: Testing & Polish
 
 **Goal:** Both deployment targets are tested, documented, and production-ready.
 
 **Tasks:**
-- [ ] Add CF Workers-specific tests (using `unstable_dev` or Miniflare)
+- [ ] Add CF Workers-specific tests (using Miniflare / `vite preview` with workerd)
 - [ ] Verify DO SQLite storage with alarm-based scheduling
 - [ ] Test secrets management (`wrangler secret put`)
 - [ ] Add deployment documentation to README
 - [ ] Update PLANNING.md with CF Workers as a deployment option
-- [ ] Test Web UI served via Workers Assets
+- [ ] Test Web UI served via Workers Assets (verify SPA fallback behaviour)
 - [ ] Verify health check endpoint works on both paths
 - [ ] End-to-end testing of schedule creation → alarm execution → email delivery
+- [ ] Verify `vite preview` matches production behaviour before deploy
 
 ---
 
@@ -978,11 +1044,20 @@ interface Env {
 - [CF Email Service (Private Beta)](https://blog.cloudflare.com/email-service/)
 - [Send Emails with Resend from Workers](https://developers.cloudflare.com/workers/tutorials/send-emails-with-resend/)
 
+### Cloudflare Vite Plugin
+- [Vite Plugin Overview](https://developers.cloudflare.com/workers/vite-plugin/)
+- [Tutorial: React SPA with an API](https://developers.cloudflare.com/workers/vite-plugin/tutorial/)
+- [Get Started with the Vite Plugin](https://developers.cloudflare.com/workers/vite-plugin/get-started/)
+- [Vite Plugin Static Assets Reference](https://developers.cloudflare.com/workers/vite-plugin/reference/static-assets/)
+- [Migrating from wrangler dev](https://developers.cloudflare.com/workers/vite-plugin/reference/migrating-from-wrangler-dev/)
+- [Introducing the Cloudflare Vite Plugin (Blog)](https://blog.cloudflare.com/introducing-the-cloudflare-vite-plugin/)
+
 ### Hono Framework
 - [Hono - Cloudflare Workers Getting Started](https://hono.dev/docs/getting-started/cloudflare-workers)
 - [Hono - Cloudflare Durable Objects Example](https://hono.dev/examples/cloudflare-durable-objects)
 - [Hono GitHub Repository](https://github.com/honojs/hono)
 - [CF Workers Framework Guide: Hono](https://developers.cloudflare.com/workers/framework-guides/web-apps/more-web-frameworks/hono/)
+- [Hono + Vite + React Stack (Yusuke Wada)](https://github.com/yusukebe/hono-vite-react-stack)
 
 ### Cloudflare Workers Assets
 - [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)
