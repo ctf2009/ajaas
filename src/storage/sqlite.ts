@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { randomBytes } from 'crypto';
-import { Storage, Schedule, RevokedToken } from './interface.js';
+import { Storage, Schedule } from './interface.js';
 import { deriveKeyBuffer, encrypt, decrypt } from '../crypto.js';
 
 export class SQLiteStorage implements Storage {
@@ -67,20 +67,20 @@ export class SQLiteStorage implements Storage {
   }
 
   // Revocation methods
-  revokeToken(jti: string): void {
+  async revokeToken(jti: string): Promise<void> {
     const stmt = this.db.prepare(
       'INSERT OR REPLACE INTO revoked_tokens (jti, revoked_at) VALUES (?, ?)'
     );
     stmt.run(jti, Math.floor(Date.now() / 1000));
   }
 
-  isTokenRevoked(jti: string): boolean {
+  async isTokenRevoked(jti: string): Promise<boolean> {
     const stmt = this.db.prepare('SELECT 1 FROM revoked_tokens WHERE jti = ?');
     return stmt.get(jti) !== undefined;
   }
 
   // Schedule methods
-  createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Schedule {
+  async createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Promise<Schedule> {
     const id = randomBytes(8).toString('hex');
     const createdAt = Math.floor(Date.now() / 1000);
 
@@ -111,30 +111,30 @@ export class SQLiteStorage implements Storage {
     return { ...schedule, id, createdAt };
   }
 
-  getSchedule(id: string): Schedule | null {
+  async getSchedule(id: string): Promise<Schedule | null> {
     const stmt = this.db.prepare('SELECT * FROM schedules WHERE id = ?');
     const row = stmt.get(id) as any;
     return row ? this.rowToSchedule(row) : null;
   }
 
-  getSchedulesDue(beforeTimestamp: number): Schedule[] {
+  async getSchedulesDue(beforeTimestamp: number): Promise<Schedule[]> {
     const stmt = this.db.prepare('SELECT * FROM schedules WHERE next_run <= ?');
     const rows = stmt.all(beforeTimestamp) as any[];
     return rows.map((row) => this.rowToSchedule(row));
   }
 
-  updateScheduleNextRun(id: string, nextRun: number): void {
+  async updateScheduleNextRun(id: string, nextRun: number): Promise<void> {
     const stmt = this.db.prepare('UPDATE schedules SET next_run = ? WHERE id = ?');
     stmt.run(nextRun, id);
   }
 
-  deleteSchedule(id: string): boolean {
+  async deleteSchedule(id: string): Promise<boolean> {
     const stmt = this.db.prepare('DELETE FROM schedules WHERE id = ?');
     const result = stmt.run(id);
     return result.changes > 0;
   }
 
-  listSchedules(createdBy?: string): Schedule[] {
+  async listSchedules(createdBy?: string): Promise<Schedule[]> {
     if (createdBy) {
       const stmt = this.db.prepare('SELECT * FROM schedules WHERE created_by = ? ORDER BY created_at DESC');
       const rows = stmt.all(createdBy) as any[];
@@ -163,7 +163,7 @@ export class SQLiteStorage implements Storage {
     };
   }
 
-  close(): void {
+  async close(): Promise<void> {
     this.db.close();
   }
 }

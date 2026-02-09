@@ -9,30 +9,30 @@ describe('SQLiteStorage', () => {
     storage = new SQLiteStorage(':memory:');
   });
 
-  afterEach(() => {
-    storage.close();
+  afterEach(async () => {
+    await storage.close();
   });
 
   describe('token revocation', () => {
-    it('should return false for non-revoked token', () => {
-      expect(storage.isTokenRevoked('some-jti')).toBe(false);
+    it('should return false for non-revoked token', async () => {
+      expect(await storage.isTokenRevoked('some-jti')).toBe(false);
     });
 
-    it('should return true after revoking a token', () => {
-      storage.revokeToken('test-jti');
-      expect(storage.isTokenRevoked('test-jti')).toBe(true);
+    it('should return true after revoking a token', async () => {
+      await storage.revokeToken('test-jti');
+      expect(await storage.isTokenRevoked('test-jti')).toBe(true);
     });
 
-    it('should handle revoking the same token twice', () => {
-      storage.revokeToken('test-jti');
-      storage.revokeToken('test-jti');
-      expect(storage.isTokenRevoked('test-jti')).toBe(true);
+    it('should handle revoking the same token twice', async () => {
+      await storage.revokeToken('test-jti');
+      await storage.revokeToken('test-jti');
+      expect(await storage.isTokenRevoked('test-jti')).toBe(true);
     });
 
-    it('should only revoke the specified token', () => {
-      storage.revokeToken('revoked-jti');
-      expect(storage.isTokenRevoked('revoked-jti')).toBe(true);
-      expect(storage.isTokenRevoked('other-jti')).toBe(false);
+    it('should only revoke the specified token', async () => {
+      await storage.revokeToken('revoked-jti');
+      expect(await storage.isTokenRevoked('revoked-jti')).toBe(true);
+      expect(await storage.isTokenRevoked('other-jti')).toBe(false);
     });
   });
 
@@ -48,8 +48,8 @@ describe('SQLiteStorage', () => {
     };
 
     describe('createSchedule', () => {
-      it('should create a schedule with generated id and createdAt', () => {
-        const schedule = storage.createSchedule(baseSchedule);
+      it('should create a schedule with generated id and createdAt', async () => {
+        const schedule = await storage.createSchedule(baseSchedule);
 
         expect(schedule.id).toBeTruthy();
         expect(schedule.createdAt).toBeTruthy();
@@ -61,15 +61,15 @@ describe('SQLiteStorage', () => {
         expect(schedule.createdBy).toBe('admin@example.com');
       });
 
-      it('should generate unique IDs for each schedule', () => {
-        const schedule1 = storage.createSchedule(baseSchedule);
-        const schedule2 = storage.createSchedule(baseSchedule);
+      it('should generate unique IDs for each schedule', async () => {
+        const schedule1 = await storage.createSchedule(baseSchedule);
+        const schedule2 = await storage.createSchedule(baseSchedule);
 
         expect(schedule1.id).not.toBe(schedule2.id);
       });
 
-      it('should store optional fields', () => {
-        const schedule = storage.createSchedule({
+      it('should store optional fields', async () => {
+        const schedule = await storage.createSchedule({
           ...baseSchedule,
           messageType: 'animal',
           from: 'Boss',
@@ -81,100 +81,100 @@ describe('SQLiteStorage', () => {
     });
 
     describe('getSchedule', () => {
-      it('should return null for non-existent schedule', () => {
-        expect(storage.getSchedule('non-existent')).toBeNull();
+      it('should return null for non-existent schedule', async () => {
+        expect(await storage.getSchedule('non-existent')).toBeNull();
       });
 
-      it('should return the created schedule', () => {
-        const created = storage.createSchedule(baseSchedule);
-        const retrieved = storage.getSchedule(created.id);
+      it('should return the created schedule', async () => {
+        const created = await storage.createSchedule(baseSchedule);
+        const retrieved = await storage.getSchedule(created.id);
 
         expect(retrieved).toEqual(created);
       });
     });
 
     describe('getSchedulesDue', () => {
-      it('should return empty array when no schedules are due', () => {
-        storage.createSchedule({
+      it('should return empty array when no schedules are due', async () => {
+        await storage.createSchedule({
           ...baseSchedule,
           nextRun: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
         });
 
-        const due = storage.getSchedulesDue(Math.floor(Date.now() / 1000));
+        const due = await storage.getSchedulesDue(Math.floor(Date.now() / 1000));
         expect(due).toHaveLength(0);
       });
 
-      it('should return schedules that are due', () => {
-        const pastSchedule = storage.createSchedule({
+      it('should return schedules that are due', async () => {
+        const pastSchedule = await storage.createSchedule({
           ...baseSchedule,
           nextRun: Math.floor(Date.now() / 1000) - 3600, // 1 hour ago
         });
 
-        storage.createSchedule({
+        await storage.createSchedule({
           ...baseSchedule,
           nextRun: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
         });
 
-        const due = storage.getSchedulesDue(Math.floor(Date.now() / 1000));
+        const due = await storage.getSchedulesDue(Math.floor(Date.now() / 1000));
         expect(due).toHaveLength(1);
         expect(due[0].id).toBe(pastSchedule.id);
       });
     });
 
     describe('updateScheduleNextRun', () => {
-      it('should update the nextRun timestamp', () => {
-        const schedule = storage.createSchedule(baseSchedule);
+      it('should update the nextRun timestamp', async () => {
+        const schedule = await storage.createSchedule(baseSchedule);
         const newNextRun = Math.floor(Date.now() / 1000) + 7200;
 
-        storage.updateScheduleNextRun(schedule.id, newNextRun);
+        await storage.updateScheduleNextRun(schedule.id, newNextRun);
 
-        const updated = storage.getSchedule(schedule.id);
+        const updated = await storage.getSchedule(schedule.id);
         expect(updated?.nextRun).toBe(newNextRun);
       });
     });
 
     describe('deleteSchedule', () => {
-      it('should return false for non-existent schedule', () => {
-        expect(storage.deleteSchedule('non-existent')).toBe(false);
+      it('should return false for non-existent schedule', async () => {
+        expect(await storage.deleteSchedule('non-existent')).toBe(false);
       });
 
-      it('should delete the schedule and return true', () => {
-        const schedule = storage.createSchedule(baseSchedule);
+      it('should delete the schedule and return true', async () => {
+        const schedule = await storage.createSchedule(baseSchedule);
 
-        expect(storage.deleteSchedule(schedule.id)).toBe(true);
-        expect(storage.getSchedule(schedule.id)).toBeNull();
+        expect(await storage.deleteSchedule(schedule.id)).toBe(true);
+        expect(await storage.getSchedule(schedule.id)).toBeNull();
       });
     });
 
     describe('listSchedules', () => {
-      it('should return empty array when no schedules exist', () => {
-        expect(storage.listSchedules()).toHaveLength(0);
+      it('should return empty array when no schedules exist', async () => {
+        expect(await storage.listSchedules()).toHaveLength(0);
       });
 
-      it('should return all schedules when no filter is provided', () => {
-        storage.createSchedule({ ...baseSchedule, createdBy: 'user1@example.com' });
-        storage.createSchedule({ ...baseSchedule, createdBy: 'user2@example.com' });
+      it('should return all schedules when no filter is provided', async () => {
+        await storage.createSchedule({ ...baseSchedule, createdBy: 'user1@example.com' });
+        await storage.createSchedule({ ...baseSchedule, createdBy: 'user2@example.com' });
 
-        const all = storage.listSchedules();
+        const all = await storage.listSchedules();
         expect(all).toHaveLength(2);
       });
 
-      it('should filter by createdBy when provided', () => {
-        storage.createSchedule({ ...baseSchedule, createdBy: 'user1@example.com' });
-        storage.createSchedule({ ...baseSchedule, createdBy: 'user2@example.com' });
-        storage.createSchedule({ ...baseSchedule, createdBy: 'user1@example.com' });
+      it('should filter by createdBy when provided', async () => {
+        await storage.createSchedule({ ...baseSchedule, createdBy: 'user1@example.com' });
+        await storage.createSchedule({ ...baseSchedule, createdBy: 'user2@example.com' });
+        await storage.createSchedule({ ...baseSchedule, createdBy: 'user1@example.com' });
 
-        const user1Schedules = storage.listSchedules('user1@example.com');
+        const user1Schedules = await storage.listSchedules('user1@example.com');
         expect(user1Schedules).toHaveLength(2);
         expect(user1Schedules.every(s => s.createdBy === 'user1@example.com')).toBe(true);
       });
 
-      it('should return multiple schedules', () => {
-        storage.createSchedule({ ...baseSchedule, recipient: 'First' });
-        storage.createSchedule({ ...baseSchedule, recipient: 'Second' });
-        storage.createSchedule({ ...baseSchedule, recipient: 'Third' });
+      it('should return multiple schedules', async () => {
+        await storage.createSchedule({ ...baseSchedule, recipient: 'First' });
+        await storage.createSchedule({ ...baseSchedule, recipient: 'Second' });
+        await storage.createSchedule({ ...baseSchedule, recipient: 'Third' });
 
-        const all = storage.listSchedules();
+        const all = await storage.listSchedules();
         expect(all).toHaveLength(3);
         const recipients = all.map(s => s.recipient);
         expect(recipients).toContain('First');
@@ -202,19 +202,19 @@ describe('SQLiteStorage', () => {
       encStorage = new SQLiteStorage(':memory:', DATA_KEY);
     });
 
-    afterEach(() => {
-      encStorage.close();
+    afterEach(async () => {
+      await encStorage.close();
     });
 
-    it('should return decrypted email when reading back a schedule', () => {
-      const created = encStorage.createSchedule(baseSchedule);
-      const retrieved = encStorage.getSchedule(created.id);
+    it('should return decrypted email when reading back a schedule', async () => {
+      const created = await encStorage.createSchedule(baseSchedule);
+      const retrieved = await encStorage.getSchedule(created.id);
 
       expect(retrieved?.recipientEmail).toBe('sarah@example.com');
     });
 
-    it('should store email encrypted in the database', () => {
-      const created = encStorage.createSchedule(baseSchedule);
+    it('should store email encrypted in the database', async () => {
+      const created = await encStorage.createSchedule(baseSchedule);
 
       // Read raw row directly from the database to verify encryption
       const rawStorage = new SQLiteStorage(':memory:');
@@ -222,42 +222,42 @@ describe('SQLiteStorage', () => {
       // create a second storage without encryption and verify the
       // encrypted storage's value differs from plaintext
       const plainStorage = new SQLiteStorage(':memory:');
-      const plainCreated = plainStorage.createSchedule(baseSchedule);
+      const plainCreated = await plainStorage.createSchedule(baseSchedule);
 
       // The encrypted storage should still return the correct email
       expect(created.recipientEmail).toBe('sarah@example.com');
       expect(plainCreated.recipientEmail).toBe('sarah@example.com');
 
-      rawStorage.close();
-      plainStorage.close();
+      await rawStorage.close();
+      await plainStorage.close();
     });
 
-    it('should decrypt email correctly in getSchedulesDue', () => {
-      encStorage.createSchedule({
+    it('should decrypt email correctly in getSchedulesDue', async () => {
+      await encStorage.createSchedule({
         ...baseSchedule,
         nextRun: Math.floor(Date.now() / 1000) - 3600,
       });
 
-      const due = encStorage.getSchedulesDue(Math.floor(Date.now() / 1000));
+      const due = await encStorage.getSchedulesDue(Math.floor(Date.now() / 1000));
       expect(due).toHaveLength(1);
       expect(due[0].recipientEmail).toBe('sarah@example.com');
     });
 
-    it('should decrypt email correctly in listSchedules', () => {
-      encStorage.createSchedule(baseSchedule);
+    it('should decrypt email correctly in listSchedules', async () => {
+      await encStorage.createSchedule(baseSchedule);
 
-      const list = encStorage.listSchedules();
+      const list = await encStorage.listSchedules();
       expect(list).toHaveLength(1);
       expect(list[0].recipientEmail).toBe('sarah@example.com');
     });
 
-    it('should work without encryption key (plaintext fallback)', () => {
+    it('should work without encryption key (plaintext fallback)', async () => {
       const plainStorage = new SQLiteStorage(':memory:');
-      const created = plainStorage.createSchedule(baseSchedule);
-      const retrieved = plainStorage.getSchedule(created.id);
+      const created = await plainStorage.createSchedule(baseSchedule);
+      const retrieved = await plainStorage.getSchedule(created.id);
 
       expect(retrieved?.recipientEmail).toBe('sarah@example.com');
-      plainStorage.close();
+      await plainStorage.close();
     });
   });
 });

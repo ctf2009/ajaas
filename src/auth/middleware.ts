@@ -9,7 +9,7 @@ declare module 'fastify' {
 
 export function createAuthMiddleware(
   tokenService: TokenService,
-  isRevoked: (jti: string) => boolean
+  isRevoked: (jti: string) => Promise<boolean>
 ) {
   return function requireAuth(requiredRole: Role) {
     return async (request: FastifyRequest, reply: FastifyReply) => {
@@ -34,7 +34,7 @@ export function createAuthMiddleware(
         return reply.status(401).send({ error: 'Token expired' });
       }
 
-      if (isRevoked(payload.jti)) {
+      if (await isRevoked(payload.jti)) {
         return reply.status(401).send({ error: 'Token revoked' });
       }
 

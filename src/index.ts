@@ -194,7 +194,7 @@ fastify.get('/health', async () => {
 const shutdown = async () => {
   console.log('Shutting down...');
   scheduler?.stop();
-  storage?.close();
+  await storage?.close();
   await fastify.close();
   process.exit(0);
 };

@@ -158,7 +158,7 @@ export async function scheduleRoutes(
         });
       }
 
-      const schedule = storage.createSchedule({
+      const schedule = await storage.createSchedule({
         recipient,
         recipientEmail,
         endpoint,
@@ -199,7 +199,7 @@ export async function scheduleRoutes(
       preHandler: requireAuth('schedule'),
     },
     async (request) => {
-      const schedules = storage.listSchedules(request.tokenPayload!.sub);
+      const schedules = await storage.listSchedules(request.tokenPayload!.sub);
       return {
         schedules: schedules.map(formatScheduleResponse),
       };
@@ -227,7 +227,7 @@ export async function scheduleRoutes(
     },
     async (request, reply) => {
       const { id } = request.params;
-      const schedule = storage.getSchedule(id);
+      const schedule = await storage.getSchedule(id);
 
       if (!schedule) {
         return reply.status(404).send({ error: 'Schedule not found' });
@@ -266,7 +266,7 @@ export async function scheduleRoutes(
     },
     async (request, reply) => {
       const { id } = request.params;
-      const schedule = storage.getSchedule(id);
+      const schedule = await storage.getSchedule(id);
 
       if (!schedule) {
         return reply.status(404).send({ error: 'Schedule not found' });
@@ -277,7 +277,7 @@ export async function scheduleRoutes(
         return reply.status(404).send({ error: 'Schedule not found' });
       }
 
-      storage.deleteSchedule(id);
+      await storage.deleteSchedule(id);
       return { success: true };
     }
   );

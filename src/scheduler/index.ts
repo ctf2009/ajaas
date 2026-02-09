@@ -42,7 +42,7 @@ export class Scheduler {
 
   private async poll(): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
-    const dueSchedules = this.storage.getSchedulesDue(now);
+    const dueSchedules = await this.storage.getSchedulesDue(now);
 
     for (const schedule of dueSchedules) {
       await this.executeSchedule(schedule);
@@ -81,7 +81,7 @@ export class Scheduler {
       // Calculate and update next run
       const nextRun = this.calculateNextRun(schedule.cron);
       if (nextRun) {
-        this.storage.updateScheduleNextRun(schedule.id, nextRun);
+        await this.storage.updateScheduleNextRun(schedule.id, nextRun);
         console.log(`Next run for ${schedule.id}: ${new Date(nextRun * 1000).toISOString()}`);
       }
     } catch (error) {
