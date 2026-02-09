@@ -575,44 +575,228 @@ The `loadConfig()` function currently reads from `process.env`. For CF Workers:
 ### Current Model
 
 - Vite + React SPA built to `dist/web/`
-- Served via `@fastify/static`
-- SPA fallback handler for client-side routing
+- Served conditionally via `@fastify/static` when `WEB_ENABLED=true`
+- SPA fallback handler for client-side routing (non-`/api` paths serve `index.html`)
+- Runtime toggle — `WEB_ENABLED=false` means the static plugin is never registered and AJAAS runs as a pure API
 
-### CF Workers Model
+This runtime toggle is a key design point: some deployments may want API-only mode with no landing page.
 
-**Workers Assets** (formerly Workers Sites / Workers Static Assets):
+### The CF Workers Challenge
+
+On Cloudflare Workers, static asset serving is fundamentally different. **Workers Assets** serves files at the **platform level** — the CDN handles matching requests to files in the configured asset directory *before* the Worker code even runs. This means:
+
+- If `assets.directory` is configured in `wrangler.jsonc`, those files are **always served** for matching requests
+- There is no runtime equivalent of `if (config.web.enabled)` — the platform serves assets unconditionally
+- The Worker only receives requests that **don't match** a static file (unless `run_worker_first` is configured)
+
+This turns `WEB_ENABLED` from a runtime toggle into a **deployment-time decision**.
+
+### CF Workers Asset Serving Options
+
+**Option A (Recommended): Wrangler Environments — deploy-time toggle**
+
+Use [Wrangler environments](https://developers.cloudflare.com/workers/wrangler/environments/) to define two deployment profiles in a single config file:
+
+```jsonc
+// wrangler.jsonc
+{
+  "name": "ajaas",
+  "main": "dist/worker.js",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Shared config (DO bindings, vars, secrets, etc.)
+  "durable_objects": { ... },
+  "vars": { ... },
+
+  // Default: full deployment with Web UI
+  "assets": {
+    "directory": "./dist/web",
+    "not_found_handling": "single-page-application"
+  },
+
+  // API-only environment: no assets block
+  "env": {
+    "api-only": {
+      "name": "ajaas-api"
+      // No "assets" key — pure Worker, no static files
+    }
+  }
+}
+```
+
+Deploy with:
+```bash
+wrangler deploy              # Full (API + Web UI)
+wrangler deploy --env api-only  # API only
+```
+
+| Pros | Cons |
+|------|------|
+| Single config file | Two deployment targets to remember |
+| Clean separation — CDN serves assets at the edge, zero Worker CPU cost | `WEB_ENABLED` is no longer a runtime toggle on CF |
+| SPA fallback handled by the platform | Need to build web assets before deploying full mode |
+| Best performance for static file delivery | |
+
+**Option B: `run_worker_first` with ASSETS binding — runtime toggle**
+
+Configure assets with a binding and `run_worker_first: true`, allowing the Worker to decide at runtime whether to serve assets:
 
 ```jsonc
 // wrangler.jsonc
 {
   "assets": {
-    "directory": "./dist/web"
-  }
-}
-```
-
-- Static files served directly from CF's edge cache
-- No Worker CPU cost for static file serving
-- SPA fallback configurable:
-
-```jsonc
-{
-  "assets": {
     "directory": "./dist/web",
+    "binding": "ASSETS",
+    "run_worker_first": true,
     "not_found_handling": "single-page-application"
   }
 }
 ```
 
-### Hono on Node.js (Docker path)
-
 ```typescript
-import { serveStatic } from '@hono/node-server/serve-static';
-
-app.use('/assets/*', serveStatic({ root: './dist/web' }));
+// In the Worker entry point
+app.get('*', async (c) => {
+  if (config.web.enabled) {
+    // Proxy to the platform's asset serving
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+  return c.json({ error: 'Not found' }, 404);
+});
 ```
 
-The web app itself (Vite + React) requires no changes — it's purely client-side. Only the serving mechanism changes.
+| Pros | Cons |
+|------|------|
+| Runtime toggle preserved — `WEB_ENABLED` works as before | **Every request** goes through the Worker first (latency + CPU cost) |
+| Single deployment target | Defeats the purpose of CDN-level asset serving |
+| Matches current behaviour model | More complex Worker code |
+| | Static files always uploaded even if unused |
+
+**Option C: `run_worker_first` with route patterns — hybrid**
+
+Use `run_worker_first` as an array to selectively route:
+
+```jsonc
+{
+  "assets": {
+    "directory": "./dist/web",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/health"],
+    "not_found_handling": "single-page-application"
+  }
+}
+```
+
+This sends `/api/*` and `/health` to the Worker, and all other paths are served as static assets by the CDN.
+
+| Pros | Cons |
+|------|------|
+| API routes go through Worker; static files served from CDN | No runtime `WEB_ENABLED` toggle |
+| Best performance for both paths | Route patterns must be maintained in two places (wrangler + Hono) |
+| Clean separation | Effectively same as Option A without the toggle |
+
+### Recommendation
+
+**Option A (Wrangler Environments)** is the recommended approach. The reasoning:
+
+1. **Performance**: Static files served directly from the CDN edge — no Worker invocation, no CPU billing, lowest latency globally.
+2. **Simplicity**: The Worker code doesn't need to know about static file serving at all. It only handles `/api/*` and `/health`.
+3. **Cost**: Worker requests are billed per invocation. Having the CDN serve static files avoids paying for every CSS/JS/image request.
+4. **Pragmatism**: The `WEB_ENABLED` toggle exists so operators can choose API-only mode. On CF Workers, this choice happens at deploy time rather than runtime — and that's fine. You deploy a different environment, not toggle a flag.
+
+The trade-off is that `WEB_ENABLED` becomes deployment-time on CF and runtime on Docker. Document this clearly.
+
+### Request Flow: CF Workers with Assets
+
+```
+Client Request: GET /awesome/Sarah
+    │
+    ├─ CDN checks: is /awesome/Sarah a static file? → No
+    ├─ Forward to Worker
+    └─ Worker: Hono routes → return JSON
+
+Client Request: GET /index.html
+    │
+    ├─ CDN checks: is /index.html a static file? → Yes
+    └─ CDN serves dist/web/index.html (Worker never invoked)
+
+Client Request: GET /some/spa/route
+    │
+    ├─ CDN checks: is /some/spa/route a static file? → No
+    ├─ not_found_handling: "single-page-application"
+    └─ CDN serves dist/web/index.html (SPA fallback, Worker never invoked)
+```
+
+### Request Flow: CF Workers API-only (no assets)
+
+```
+Client Request: GET /awesome/Sarah
+    │
+    └─ Worker: Hono routes → return JSON
+
+Client Request: GET /
+    │
+    └─ Worker: Hono 404 handler → { error: "Not found" }
+```
+
+### Hono on Node.js (Docker path)
+
+The Docker path preserves the runtime `WEB_ENABLED` toggle, using Hono's static middleware:
+
+```typescript
+// src/entrypoints/node.ts
+import { serveStatic } from '@hono/node-server/serve-static';
+
+if (config.web.enabled) {
+  // Serve static files from dist/web
+  app.use('/*', serveStatic({ root: './dist/web' }));
+
+  // SPA fallback — non-API routes serve index.html
+  app.get('*', async (c) => {
+    if (!c.req.path.startsWith('/api')) {
+      return serveStatic({ root: './dist/web', path: 'index.html' })(c, async () => {});
+    }
+    return c.json({ error: 'Not found' }, 404);
+  });
+}
+```
+
+### Build Pipeline
+
+The web UI build remains unchanged regardless of deployment target:
+
+```bash
+npm run build:web    # Vite builds React SPA → dist/web/
+```
+
+For CF deployment (full mode), `dist/web/` must exist before `wrangler deploy`. The deploy script should enforce this:
+
+```bash
+# package.json scripts
+{
+  "deploy:cf": "npm run build:api && npm run build:web && wrangler deploy",
+  "deploy:cf:api-only": "npm run build:api && wrangler deploy --env api-only"
+}
+```
+
+### Web UI Code Changes
+
+The React SPA itself (`src/web/`) requires **no changes**. It's a client-side application that calls `/api/*` endpoints via relative URLs. Whether it's served by Fastify, Hono, or CF Workers Assets, the app functions identically.
+
+The only consideration: if the API and web UI are deployed to different origins (e.g., web on CF Pages, API on CF Workers), CORS headers would need to be added. However, with Workers Assets, both are served from the same origin — no CORS needed.
+
+### Env Type Update
+
+When using the `ASSETS` binding (Option B/C), add to the `Env` type:
+
+```typescript
+interface Env {
+  // ... existing bindings
+  ASSETS?: Fetcher;  // Only present when assets are configured with a binding
+}
+```
+
+For Option A (recommended), no `ASSETS` binding is needed in the Worker code — the platform handles everything.
 
 ---
 
@@ -627,19 +811,15 @@ The web app itself (Vite + React) requires no changes — it's purely client-sid
   "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat"],
 
+  // --- Shared configuration ---
+
   "vars": {
     "SECURITY_ENABLED": "true",
     "SCHEDULE_ENABLED": "true",
     "TOUGH_LOVE_ENABLED": "true",
-    "WEB_ENABLED": "true",
     "RATE_LIMIT_ENABLED": "false",
     "RATE_LIMIT_MAX": "100",
     "RATE_LIMIT_WINDOW": "1 minute"
-  },
-
-  "assets": {
-    "directory": "./dist/web",
-    "not_found_handling": "single-page-application"
   },
 
   "durable_objects": {
@@ -656,9 +836,36 @@ The web app itself (Vite + React) requires no changes — it's purely client-sid
       "tag": "v1",
       "new_sqlite_classes": ["ScheduleManager"]
     }
-  ]
+  ],
+
+  // --- Default deployment: API + Web UI ---
+
+  "assets": {
+    "directory": "./dist/web",
+    "not_found_handling": "single-page-application"
+  },
+
+  // --- API-only deployment (no web UI) ---
+
+  "env": {
+    "api-only": {
+      "name": "ajaas-api"
+      // No "assets" block — Worker handles all requests, no static files
+    }
+  }
 }
 ```
+
+**Deploy commands:**
+```bash
+# Full deployment (API + Web UI)
+npm run build && wrangler deploy
+
+# API-only deployment (no web UI)
+npm run build:api && wrangler deploy --env api-only
+```
+
+Note: `WEB_ENABLED` is deliberately absent from `vars`. On CF Workers, front-end serving is controlled by which deployment profile you use, not a runtime flag. On Docker/Node.js, it remains a runtime environment variable.
 
 ### TypeScript Bindings
 
@@ -676,7 +883,6 @@ interface Env {
   SECURITY_ENABLED: string;
   SCHEDULE_ENABLED: string;
   TOUGH_LOVE_ENABLED: string;
-  WEB_ENABLED: string;
   RATE_LIMIT_ENABLED: string;
   RATE_LIMIT_MAX: string;
   RATE_LIMIT_WINDOW: string;
@@ -862,6 +1068,12 @@ interface Env {
 - **Option B:** Tokens are deployment-specific (different encryption keys anyway)
 - **Status:** Likely Option B is sufficient — clarify requirements
 
+### Decision 7: Web UI Serving Strategy on CF Workers
+- **Option A (Recommended):** Wrangler environments — deploy-time toggle (`wrangler deploy` for full, `wrangler deploy --env api-only` for API-only). CDN serves static assets directly with zero Worker CPU cost.
+- **Option B:** `run_worker_first: true` with `ASSETS` binding — runtime toggle preserved, but all requests (including static files) pass through Worker code, adding latency and cost.
+- **Option C:** `run_worker_first` with route patterns — hybrid, but effectively same as Option A without the toggle.
+- **Status:** Recommend Option A. Accept that `WEB_ENABLED` is a deploy-time choice on CF and a runtime choice on Docker. Document the difference clearly.
+
 ---
 
 ## 13. Risks & Constraints
@@ -920,6 +1132,11 @@ interface Env {
 - [Hono - Cloudflare Durable Objects Example](https://hono.dev/examples/cloudflare-durable-objects)
 - [Hono GitHub Repository](https://github.com/honojs/hono)
 - [CF Workers Framework Guide: Hono](https://developers.cloudflare.com/workers/framework-guides/web-apps/more-web-frameworks/hono/)
+
+### Cloudflare Workers Assets
+- [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)
+- [Workers Assets Binding & Configuration](https://developers.cloudflare.com/workers/static-assets/binding/)
+- [Wrangler Environments](https://developers.cloudflare.com/workers/wrangler/environments/)
 
 ### Blog Posts
 - [Zero-latency SQLite storage in every Durable Object](https://blog.cloudflare.com/sqlite-in-durable-objects/)
