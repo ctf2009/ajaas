@@ -9,7 +9,8 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import { loadConfig } from './config.js';
 import { messageRoutes } from './routes/messages.js';
 import { scheduleRoutes } from './routes/schedule.js';
-import { SQLiteStorage } from './storage/sqlite.js';
+import { createStorage } from './storage/factory.js';
+import { Storage } from './storage/interface.js';
 import { TokenService } from './auth/token.js';
 import { MessageService } from './services/messages.js';
 import { Scheduler } from './scheduler/index.js';
@@ -23,15 +24,22 @@ const config = loadConfig();
 const needsStorage = config.security.enabled || config.endpoints.schedule.enabled;
 
 // Initialize storage (needed for token revocation and/or scheduling)
-let storage: SQLiteStorage | null = null;
+let storage: Storage | null = null;
 if (needsStorage) {
-  storage = new SQLiteStorage(config.database.path, config.database.dataEncryptionKey || undefined);
+  storage = await createStorage({
+    connectionUrl: config.database.path,
+    dataEncryptionKey: config.database.dataEncryptionKey || undefined,
+  });
 
   if (!config.database.dataEncryptionKey) {
     console.warn(
       'WARNING: DATA_ENCRYPTION_KEY not set. Sensitive schedule data (e.g. email addresses) will be stored unencrypted.'
     );
   }
+
+  // Log storage backend type
+  const isPostgres = config.database.path.startsWith('postgresql://') || config.database.path.startsWith('postgres://');
+  console.log(`Storage backend: ${isPostgres ? 'PostgreSQL' : 'SQLite'}`);
 }
 
 // Initialize services
