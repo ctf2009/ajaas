@@ -45,8 +45,11 @@ curl "http://localhost:3000/api/random/Alex?from=Boss"
 | `GET /api/message/:type/:name` | Specific message type |
 | `GET /api/types` | List available message types |
 | `GET /api/docs` | Swagger UI documentation |
+| `GET /health` | Health check with feature status |
 
 All message endpoints accept an optional `?from=Name` query parameter for attribution.
+
+Message endpoints also support content negotiation via the `Accept` header. Set `Accept: text/plain` to receive plain text responses instead of JSON.
 
 ### Message Types
 
@@ -71,6 +74,12 @@ All message endpoints accept an optional `?from=Name` query parameter for attrib
 | `RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
 | `RATE_LIMIT_MAX` | `100` | Max requests per time window |
 | `RATE_LIMIT_WINDOW` | `1 minute` | Rate limit time window |
+
+### Web / Analytics
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `VITE_GA_MEASUREMENT_ID` | - | Google Analytics 4 measurement ID (build-time) |
 
 ### Email Configuration (for scheduled messages)
 
@@ -124,6 +133,37 @@ ENCRYPTION_KEY="your-32-char-secret-key-here!!!" npm run generate-key -- \
   --expires 30d
 ```
 
+## Contributing
+
+This project enforces [Conventional Commits](https://www.conventionalcommits.org/). All commit messages and PR titles **must** follow this format:
+
+```
+<type>(<optional scope>): <description>
+```
+
+| Type | Purpose |
+|------|---------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `chore` | Maintenance, dependencies, CI |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `test` | Adding or updating tests |
+| `ci` | CI/CD pipeline changes |
+
+Examples:
+
+```
+feat: add Discord delivery method
+fix(scheduler): correct cron timezone handling
+docs: update API endpoint table in README
+chore: bump fastify to v5.3.0
+```
+
+PR titles are validated in CI — builds will not run if the title does not follow conventional commits.
+
+Release versions are managed automatically by [release-please](https://github.com/googleapis/release-please) based on commit types (`feat` = minor, `fix` = patch).
+
 ## Development
 
 ```bash
@@ -144,6 +184,15 @@ npm run build:api
 
 # Build web only
 npm run build:web
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
 ```
 
 ## Docker
@@ -167,15 +216,18 @@ docker run -p 3000:3000 \
 
 ```
 ├── src/
-│   ├── api/
-│   │   ├── auth/         # Token encryption & middleware
-│   │   ├── delivery/     # Email delivery
-│   │   ├── routes/       # API endpoints
-│   │   ├── scheduler/    # Polling scheduler
-│   │   ├── services/     # Message generation
-│   │   └── storage/      # SQLite storage
-│   └── web/              # React landing page
+│   ├── auth/             # Token encryption & middleware
+│   ├── delivery/         # Email delivery
+│   ├── routes/           # API endpoints
+│   ├── scheduler/        # Polling scheduler
+│   ├── services/         # Message generation
+│   ├── storage/          # SQLite storage
+│   ├── config.ts         # Configuration loader
+│   ├── index.ts          # Application entry point
+│   └── web/              # React landing page (Vite)
 ├── scripts/              # CLI tools
+├── vitest.config.ts      # Test configuration
+├── tsconfig.json         # TypeScript configuration
 ├── Dockerfile
 └── package.json
 ```

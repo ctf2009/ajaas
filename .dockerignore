@@ -8,3 +8,6 @@ dist
 coverage
 .nyc_output
 *.log
+.github
+.release-please-manifest.json
+release-please-config.json
