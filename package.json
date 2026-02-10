@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "postinstall": "cd src/web && npm install"
+    "postinstall": "cd src/web && npm ci"
   },
   "keywords": [
     "api",
