@@ -1,16 +1,18 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { TokenService, TokenPayload, Role } from './token.js';
 
-export interface AuthenticatedRequest extends FastifyRequest {
-  tokenPayload?: TokenPayload;
+declare module 'fastify' {
+  interface FastifyRequest {
+    tokenPayload?: TokenPayload;
+  }
 }
 
 export function createAuthMiddleware(
   tokenService: TokenService,
-  isRevoked: (jti: string) => boolean
+  isRevoked: (jti: string) => Promise<boolean>
 ) {
   return function requireAuth(requiredRole: Role) {
-    return async (request: AuthenticatedRequest, reply: FastifyReply) => {
+    return async (request: FastifyRequest, reply: FastifyReply) => {
       const authHeader = request.headers.authorization;
 
       if (!authHeader) {
@@ -32,7 +34,7 @@ export function createAuthMiddleware(
         return reply.status(401).send({ error: 'Token expired' });
       }
 
-      if (isRevoked(payload.jti)) {
+      if (await isRevoked(payload.jti)) {
         return reply.status(401).send({ error: 'Token revoked' });
       }
 
@@ -48,7 +50,7 @@ export function createAuthMiddleware(
 }
 
 export function createOptionalAuthMiddleware(tokenService: TokenService) {
-  return async (request: AuthenticatedRequest) => {
+  return async (request: FastifyRequest) => {
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {

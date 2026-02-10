@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { Config } from '../config.js';
 import { Storage } from '../storage/interface.js';
 import { TokenService } from '../auth/token.js';
-import { createAuthMiddleware, AuthenticatedRequest } from '../auth/middleware.js';
+import { createAuthMiddleware } from '../auth/middleware.js';
 import { Scheduler } from '../scheduler/index.js';
 
 interface ScheduleRouteOptions extends FastifyPluginOptions {
@@ -10,6 +10,22 @@ interface ScheduleRouteOptions extends FastifyPluginOptions {
   storage: Storage;
   tokenService: TokenService;
   scheduler: Scheduler;
+}
+
+interface CreateScheduleBody {
+  recipient: string;
+  recipientEmail: string;
+  endpoint: string;
+  messageType?: string;
+  from?: string;
+  cron: string;
+  deliveryMethod?: 'email' | 'webhook';
+  webhookUrl?: string;
+  webhookSecret?: string;
+}
+
+interface IdParam {
+  id: string;
 }
 
 const createScheduleBodySchema = {
@@ -35,9 +51,18 @@ const createScheduleBodySchema = {
     },
     deliveryMethod: {
       type: 'string',
-      enum: ['email'],
+      enum: ['email', 'webhook'],
       default: 'email',
       description: 'Delivery method',
+    },
+    webhookUrl: {
+      type: 'string',
+      format: 'uri',
+      description: 'Webhook URL (required if deliveryMethod is "webhook")',
+    },
+    webhookSecret: {
+      type: 'string',
+      description: 'Optional secret for HMAC-SHA256 webhook signature',
     },
   },
 } as const;
@@ -54,15 +79,33 @@ const scheduleResponseSchema = {
     cron: { type: 'string' },
     nextRun: { type: 'string', format: 'date-time' },
     deliveryMethod: { type: 'string' },
+    webhookUrl: { type: 'string' },
+    webhookSecretSet: { type: 'boolean', description: 'Whether a webhook secret is configured' },
     createdAt: { type: 'string', format: 'date-time' },
   },
 } as const;
+
+const idParamSchema = {
+  type: 'object',
+  properties: { id: { type: 'string' } },
+  required: ['id'],
+} as const;
+
+function formatScheduleResponse(schedule: any) {
+  const { webhookSecret, ...rest } = schedule;
+  return {
+    ...rest,
+    nextRun: new Date(schedule.nextRun * 1000).toISOString(),
+    createdAt: new Date(schedule.createdAt * 1000).toISOString(),
+    webhookSecretSet: !!webhookSecret,
+  };
+}
 
 export async function scheduleRoutes(
   fastify: FastifyInstance,
   options: ScheduleRouteOptions
 ): Promise<void> {
-  const { config, storage, tokenService, scheduler } = options;
+  const { storage, tokenService, scheduler } = options;
 
   const requireAuth = createAuthMiddleware(
     tokenService,
@@ -70,17 +113,7 @@ export async function scheduleRoutes(
   );
 
   // POST /api/schedule - Create a new schedule
-  fastify.post<{
-    Body: {
-      recipient: string;
-      recipientEmail: string;
-      endpoint: string;
-      messageType?: string;
-      from?: string;
-      cron: string;
-      deliveryMethod?: 'email';
-    };
-  }>(
+  fastify.post<{ Body: CreateScheduleBody }>(
     '/schedule',
     {
       schema: {
@@ -98,9 +131,11 @@ export async function scheduleRoutes(
       },
       preHandler: requireAuth('schedule'),
     },
-    async (request: AuthenticatedRequest, reply) => {
-      const { recipient, recipientEmail, endpoint, messageType, from, cron, deliveryMethod } =
-        request.body as any;
+    async (request, reply) => {
+      const {
+        recipient, recipientEmail, endpoint, messageType, from,
+        cron, deliveryMethod, webhookUrl, webhookSecret,
+      } = request.body;
 
       // Validate cron expression
       const nextRun = scheduler.calculateNextRun(cron);
@@ -115,7 +150,15 @@ export async function scheduleRoutes(
         });
       }
 
-      const schedule = storage.createSchedule({
+      // Validate webhookUrl is provided when deliveryMethod is 'webhook'
+      const method = deliveryMethod || 'email';
+      if (method === 'webhook' && !webhookUrl) {
+        return reply.status(400).send({
+          error: 'webhookUrl is required when deliveryMethod is "webhook"',
+        });
+      }
+
+      const schedule = await storage.createSchedule({
         recipient,
         recipientEmail,
         endpoint,
@@ -123,15 +166,13 @@ export async function scheduleRoutes(
         from,
         cron,
         nextRun,
-        deliveryMethod: deliveryMethod || 'email',
+        deliveryMethod: method,
+        webhookUrl,
+        webhookSecret,
         createdBy: request.tokenPayload!.sub,
       });
 
-      return reply.status(201).send({
-        ...schedule,
-        nextRun: new Date(schedule.nextRun * 1000).toISOString(),
-        createdAt: new Date(schedule.createdAt * 1000).toISOString(),
-      });
+      return reply.status(201).send(formatScheduleResponse(schedule));
     }
   );
 
@@ -157,31 +198,23 @@ export async function scheduleRoutes(
       },
       preHandler: requireAuth('schedule'),
     },
-    async (request: AuthenticatedRequest) => {
-      const schedules = storage.listSchedules(request.tokenPayload!.sub);
+    async (request) => {
+      const schedules = await storage.listSchedules(request.tokenPayload!.sub);
       return {
-        schedules: schedules.map((s) => ({
-          ...s,
-          nextRun: new Date(s.nextRun * 1000).toISOString(),
-          createdAt: new Date(s.createdAt * 1000).toISOString(),
-        })),
+        schedules: schedules.map(formatScheduleResponse),
       };
     }
   );
 
   // GET /api/schedule/:id - Get a specific schedule
-  fastify.get<{ Params: { id: string } }>(
+  fastify.get<{ Params: IdParam }>(
     '/schedule/:id',
     {
       schema: {
         tags: ['schedule'],
         summary: 'Get a scheduled message',
         security: [{ bearerAuth: [] }],
-        params: {
-          type: 'object',
-          properties: { id: { type: 'string' } },
-          required: ['id'],
-        },
+        params: idParamSchema,
         response: {
           200: scheduleResponseSchema,
           404: {
@@ -192,9 +225,9 @@ export async function scheduleRoutes(
       },
       preHandler: requireAuth('schedule'),
     },
-    async (request: AuthenticatedRequest, reply) => {
-      const { id } = request.params as { id: string };
-      const schedule = storage.getSchedule(id);
+    async (request, reply) => {
+      const { id } = request.params;
+      const schedule = await storage.getSchedule(id);
 
       if (!schedule) {
         return reply.status(404).send({ error: 'Schedule not found' });
@@ -205,27 +238,19 @@ export async function scheduleRoutes(
         return reply.status(404).send({ error: 'Schedule not found' });
       }
 
-      return {
-        ...schedule,
-        nextRun: new Date(schedule.nextRun * 1000).toISOString(),
-        createdAt: new Date(schedule.createdAt * 1000).toISOString(),
-      };
+      return formatScheduleResponse(schedule);
     }
   );
 
   // DELETE /api/schedule/:id - Delete a schedule
-  fastify.delete<{ Params: { id: string } }>(
+  fastify.delete<{ Params: IdParam }>(
     '/schedule/:id',
     {
       schema: {
         tags: ['schedule'],
         summary: 'Delete a scheduled message',
         security: [{ bearerAuth: [] }],
-        params: {
-          type: 'object',
-          properties: { id: { type: 'string' } },
-          required: ['id'],
-        },
+        params: idParamSchema,
         response: {
           200: {
             type: 'object',
@@ -239,9 +264,9 @@ export async function scheduleRoutes(
       },
       preHandler: requireAuth('schedule'),
     },
-    async (request: AuthenticatedRequest, reply) => {
-      const { id } = request.params as { id: string };
-      const schedule = storage.getSchedule(id);
+    async (request, reply) => {
+      const { id } = request.params;
+      const schedule = await storage.getSchedule(id);
 
       if (!schedule) {
         return reply.status(404).send({ error: 'Schedule not found' });
@@ -252,7 +277,7 @@ export async function scheduleRoutes(
         return reply.status(404).send({ error: 'Schedule not found' });
       }
 
-      storage.deleteSchedule(id);
+      await storage.deleteSchedule(id);
       return { success: true };
     }
   );
