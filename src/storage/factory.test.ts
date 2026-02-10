@@ -42,10 +42,17 @@ describe('Storage Factory', () => {
     // by checking the storage type before initialization fails
     try {
       storage = await createStorage({ connectionUrl });
+      // If we get here without error, fail the test
+      expect.fail('Expected connection to fail without PostgreSQL server');
     } catch (e) {
       // Expected to fail without a real PostgreSQL server
       // The error indicates it tried to create a PostgresStorage
-      expect((e as Error).message).toMatch(/connect|ECONNREFUSED|getaddrinfo/i);
+      // Handle AggregateError (nested errors array) or regular errors
+      const err = e as any;
+      const errorStr = err.errors
+        ? err.errors.map((nested: Error) => String(nested)).join(' ')
+        : String(e);
+      expect(errorStr).toMatch(/connect|ECONNREFUSED|getaddrinfo/i);
     }
   });
 
@@ -54,9 +61,15 @@ describe('Storage Factory', () => {
 
     try {
       storage = await createStorage({ connectionUrl });
+      expect.fail('Expected connection to fail without PostgreSQL server');
     } catch (e) {
       // Expected to fail without a real PostgreSQL server
-      expect((e as Error).message).toMatch(/connect|ECONNREFUSED|getaddrinfo/i);
+      // Handle AggregateError (nested errors array) or regular errors
+      const err = e as any;
+      const errorStr = err.errors
+        ? err.errors.map((nested: Error) => String(nested)).join(' ')
+        : String(e);
+      expect(errorStr).toMatch(/connect|ECONNREFUSED|getaddrinfo/i);
     }
   });
 
