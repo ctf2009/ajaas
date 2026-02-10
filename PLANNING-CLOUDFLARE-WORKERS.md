@@ -1,4 +1,4 @@
-# AJAAS - Cloudflare Workers Deployment Plan
+# AJaaS - Cloudflare Workers Deployment Plan
 
 ## Overview
 
@@ -38,18 +38,25 @@ Client Request
 [Fastify on Node.js]
     |
     ├── Routes (messages, schedule)
-    ├── Auth middleware (Node crypto AES-256-GCM)
+    ├── Auth middleware (AES-256-GCM via src/crypto.ts)
     ├── MessageService (in-memory templates)
     ├── Scheduler (setInterval polling loop)
-    ├── SQLiteStorage (better-sqlite3 on filesystem)
-    └── Email delivery (Nodemailer SMTP)
+    ├── Storage (async interface)
+    │   ├── SQLiteStorage (better-sqlite3) — default
+    │   └── PostgresStorage (pg) — via factory
+    ├── Delivery
+    │   ├── Email (Nodemailer SMTP)
+    │   └── Webhook (fetch + HMAC-SHA256 signing)
+    └── Data encryption at rest (recipientEmail, webhookUrl, webhookSecret)
 ```
 
 - Single long-running process
-- Filesystem-backed SQLite database
+- Storage factory pattern: SQLite or PostgreSQL based on connection URL
+- Async `Storage` interface with encryption-at-rest for sensitive fields
 - `setInterval` polling for schedule execution
-- Node.js `crypto` module for token encryption
-- Nodemailer for SMTP email delivery
+- Centralized `crypto.ts` module (AES-256-GCM) for tokens AND data encryption
+- Webhook delivery with optional HMAC-SHA256 signing
+- `.env` file loading via `src/env.ts`
 - Docker multi-stage build for deployment
 
 ### Proposed: Cloudflare Workers
@@ -61,21 +68,25 @@ Client Request
 [Hono on CF Workers runtime]
     |
     ├── Routes (messages, schedule)  ← Worker (stateless)
-    ├── Auth middleware (Web Crypto API AES-256-GCM)
+    ├── Auth middleware (AES-256-GCM via nodejs_compat)
     ├── MessageService (in-memory templates) ← Worker (stateless)
     |
     ├── Durable Object: ScheduleManager
     │   ├── SQLite storage (schedules, revoked tokens)
+    │   ├── Data encryption at rest (same crypto.ts)
     │   └── Alarm handler (schedule execution)
     |
-    └── Email delivery (CF Email Service / Resend / MailChannels API)
+    └── Delivery
+        ├── Email (Resend / CF Email Service — fetch-based)
+        └── Webhook (fetch + HMAC-SHA256 signing — works as-is)
 ```
 
 - Stateless Worker for HTTP handling
 - Durable Object with embedded SQLite for persistent state
 - DO Alarms for precise, per-schedule wake-ups (replaces polling)
-- Web Crypto API (or `node:crypto` via `nodejs_compat`) for encryption
-- CF-native or third-party email sending
+- `node:crypto` via `nodejs_compat` (existing `crypto.ts` works unchanged)
+- Webhook delivery works natively (uses `fetch`)
+- CF-native or third-party email sending (replaces Nodemailer only)
 - Wrangler for deployment (no Docker needed)
 
 ---
@@ -175,23 +186,28 @@ export { ScheduleManager } from '../durable-objects/schedule-manager.js';
 
 ### Current Storage Interface
 
-The existing `Storage` interface (`src/storage/interface.ts`) is already well-abstracted:
+The `Storage` interface (`src/storage/interface.ts`) is already **fully async** and well-abstracted:
 
 ```typescript
 interface Storage {
-  revokeToken(jti: string): void;
-  isTokenRevoked(jti: string): boolean;
-  createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Schedule;
-  getSchedule(id: string): Schedule | null;
-  getSchedulesDue(beforeTimestamp: number): Schedule[];
-  updateScheduleNextRun(id: string, nextRun: number): void;
-  deleteSchedule(id: string): boolean;
-  listSchedules(createdBy?: string): Schedule[];
-  close(): void;
+  revokeToken(jti: string): Promise<void>;
+  isTokenRevoked(jti: string): Promise<boolean>;
+  createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Promise<Schedule>;
+  getSchedule(id: string): Promise<Schedule | null>;
+  getSchedulesDue(beforeTimestamp: number): Promise<Schedule[]>;
+  updateScheduleNextRun(id: string, nextRun: number): Promise<void>;
+  deleteSchedule(id: string): Promise<boolean>;
+  listSchedules(createdBy?: string): Promise<Schedule[]>;
+  close(): Promise<void>;
 }
 ```
 
-This is a significant advantage — the interface already separates storage concerns from implementation. A Durable Object SQLite implementation can fulfil this same interface.
+This is a significant advantage:
+- **Already async** — no refactoring needed for DO RPC (which is inherently async)
+- **Factory pattern** exists (`src/storage/factory.ts`) — selects backend based on connection URL
+- **Two implementations** already: `SQLiteStorage` and `PostgresStorage`
+- **Encryption at rest** built in — both backends encrypt `recipientEmail`, `webhookUrl`, `webhookSecret`
+- Adding a DO SQLite implementation is a natural extension of this pattern
 
 ### Durable Object SQLite Implementation
 
@@ -226,9 +242,9 @@ Use a **single `ScheduleManager` Durable Object** that holds the SQLite database
 
 If scale becomes a concern later, the per-schedule DO pattern can be adopted — the Storage interface abstraction makes this a contained change.
 
-### Schema (identical to current)
+### Schema
 
-The existing SQLite schema transfers directly:
+The existing SQLite schema, including webhook columns and encryption-at-rest:
 
 ```sql
 CREATE TABLE revoked_tokens (
@@ -239,13 +255,15 @@ CREATE TABLE revoked_tokens (
 CREATE TABLE schedules (
   id TEXT PRIMARY KEY,
   recipient TEXT NOT NULL,
-  recipient_email TEXT NOT NULL,
+  recipient_email TEXT NOT NULL,      -- encrypted if DATA_ENCRYPTION_KEY set
   endpoint TEXT NOT NULL,
   message_type TEXT,
   from_name TEXT,
   cron TEXT NOT NULL,
   next_run INTEGER NOT NULL,
   delivery_method TEXT NOT NULL DEFAULT 'email',
+  webhook_url TEXT,                   -- encrypted if DATA_ENCRYPTION_KEY set
+  webhook_secret TEXT,                -- encrypted if DATA_ENCRYPTION_KEY set
   created_by TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
@@ -254,47 +272,30 @@ CREATE INDEX idx_schedules_next_run ON schedules(next_run);
 CREATE INDEX idx_schedules_created_by ON schedules(created_by);
 ```
 
-### Storage Interface Changes
+This schema transfers directly to DO SQLite. The encryption-at-rest uses the centralized `crypto.ts` module (AES-256-GCM), which works on CF Workers via `nodejs_compat`.
 
-The `Storage` interface needs minor adjustments for async compatibility. Durable Object SQLite is synchronous within the DO, but calling from a Worker to a DO is always asynchronous (via RPC). Two options:
+### Storage Interface — Already Async
 
-**Option A: Make the Storage interface async**
+The `Storage` interface is already fully async (all methods return `Promise`). This means:
 
-```typescript
-interface Storage {
-  revokeToken(jti: string): Promise<void> | void;
-  isTokenRevoked(jti: string): Promise<boolean> | boolean;
-  // ... etc
-}
-```
+- **No `AsyncStorage` / `SyncToAsyncAdapter` needed** — the original plan's Phase 2 is complete
+- Route handlers, auth middleware, and the scheduler already `await` all storage calls
+- The DO SQLite implementation can implement the same `Storage` interface directly
+- The storage factory (`createStorage`) can be extended with a `'do-sqlite'` path
 
-**Option B (Recommended): Separate transport from storage**
-
-Keep the `Storage` interface synchronous (used inside the DO), and create an `RpcStorageClient` that wraps DO RPC calls for use from the Worker:
+The only new code needed is an `RpcStorageClient` that bridges the Worker → DO boundary:
 
 ```typescript
-// Used inside the Durable Object — synchronous, direct SQLite access
-interface Storage { /* current interface, unchanged */ }
-
-// Used from the Worker — async wrapper around DO RPC
-class RpcStorageClient implements AsyncStorage {
+// Worker-side: proxies Storage calls to the Durable Object via RPC
+class RpcStorageClient implements Storage {
   constructor(private stub: DurableObjectStub<ScheduleManager>) {}
   async isTokenRevoked(jti: string): Promise<boolean> {
     return this.stub.isTokenRevoked(jti);
   }
-  // ... etc
-}
-```
-
-This means route handlers and auth middleware need to work with `AsyncStorage`. Since the Node.js path uses synchronous `better-sqlite3`, the Node.js `Storage` can be wrapped in a thin async adapter:
-
-```typescript
-class SyncToAsyncAdapter implements AsyncStorage {
-  constructor(private storage: Storage) {}
-  async isTokenRevoked(jti: string): Promise<boolean> {
-    return this.storage.isTokenRevoked(jti);
+  async createSchedule(schedule: ...): Promise<Schedule> {
+    return this.stub.createSchedule(schedule);
   }
-  // ... etc
+  // ... all methods delegate to DO RPC
 }
 ```
 
@@ -391,63 +392,49 @@ The `croner` library (used for cron parsing) is pure JavaScript with no Node.js 
 
 ### Current Implementation
 
-Uses Node.js `crypto` module for AES-256-GCM encryption:
-- `createCipheriv` / `createDecipheriv`
-- `randomBytes` for IV and token ID generation
+Cryptography is now **centralized** in `src/crypto.ts`, used for two purposes:
+
+1. **Token encryption** — `TokenService` uses `encrypt()`/`decrypt()` for API key tokens
+2. **Data-at-rest encryption** — Storage backends use the same functions to encrypt `recipientEmail`, `webhookUrl`, `webhookSecret`
+
+The module uses:
+- `createCipheriv` / `createDecipheriv` (AES-256-GCM)
+- `randomBytes` for IV generation
 - `Buffer` for binary data handling
+- `createHmac` for webhook HMAC-SHA256 signatures (`src/delivery/webhook.ts`)
 
-### CF Workers Options
+Two separate keys:
+- `ENCRYPTION_KEY` — for token encryption (via `TokenService`)
+- `DATA_ENCRYPTION_KEY` — for storage-level field encryption
 
-**Option A: Web Crypto API (native, no compat flag needed)**
+### CF Workers Compatibility
 
-```typescript
-// Key import
-const key = await crypto.subtle.importKey(
-  'raw',
-  new TextEncoder().encode(encryptionKey.slice(0, 32)),
-  { name: 'AES-GCM', length: 256 },
-  false,
-  ['encrypt', 'decrypt']
-);
+**`nodejs_compat` makes all of this work unchanged.** The `crypto.ts` module uses `node:crypto` functions (`createCipheriv`, `createDecipheriv`, `randomBytes`) which are fully supported via `nodejs_compat`. Since the module is already centralized and used by both token and storage layers, there's a single place to verify CF compatibility.
 
-// Encrypt
-const iv = crypto.getRandomValues(new Uint8Array(16));
-const encrypted = await crypto.subtle.encrypt(
-  { name: 'AES-GCM', iv },
-  key,
-  new TextEncoder().encode(JSON.stringify(payload))
-);
+The webhook delivery's `createHmac('sha256', ...)` also works under `nodejs_compat`.
 
-// Note: Web Crypto API appends the auth tag to the ciphertext automatically
-```
+**Web Crypto API migration is NOT recommended at this stage** — the centralized `crypto.ts` is used synchronously by both `TokenService` and both storage backends. Moving to Web Crypto would require making all encryption async, which cascades through the entire codebase. The benefit (smaller bundle) doesn't justify the cost.
 
-**Option B: `node:crypto` via `nodejs_compat` flag**
+### Token Format
 
-With `nodejs_compat` enabled, the existing `TokenService` code works largely unchanged. The `node:crypto` module is fully supported in CF Workers.
-
-**Recommendation: Option B for initial migration, Option A as a future optimization**
-
-Using `nodejs_compat` reduces the scope of changes for the initial migration. The `TokenService` class can remain largely unchanged. However, note that `nodejs_compat` increases bundle size. A future optimization could move to Web Crypto API.
-
-**Important consideration:** The `TokenService` is currently synchronous. Web Crypto API operations (`crypto.subtle.*`) are async. If migrating to Web Crypto, the `TokenService` methods (`encrypt`, `decrypt`, etc.) must become `async`. This has a cascading effect on auth middleware and route handlers.
-
-### Token Format Compatibility
-
-If moving from Node.js `crypto` to Web Crypto API, there is a **token format difference**: Web Crypto's AES-GCM appends the auth tag to the ciphertext, while the current implementation manually concatenates `[IV][authTag][ciphertext]`. For token compatibility between environments:
-
-- Either maintain the same binary format by manually extracting the auth tag from Web Crypto output
-- Or accept that tokens are not portable between container and CF deployments (likely acceptable — separate deployments would have separate encryption keys anyway)
+Tokens use the format `[IV (16 bytes)][AuthTag (16 bytes)][Ciphertext]` → base64url. This format is consistent across environments when using `nodejs_compat`. Tokens are deployment-specific (different encryption keys), so cross-environment portability is not required.
 
 ---
 
-## 6. Email Delivery
+## 6. Delivery (Email & Webhooks)
 
 ### Current Implementation
 
+**Email:**
 - `NodemailerDelivery` — SMTP via Nodemailer
 - `ConsoleDelivery` — Development logging
 
-Nodemailer depends on Node.js `net` and `tls` modules, which are not available in CF Workers. It cannot be used directly.
+**Webhook (NEW — already CF-compatible):**
+- `WebhookDelivery` — POST JSON payloads via `fetch()` with optional HMAC-SHA256 signing
+- `ConsoleWebhookDelivery` — Development logging
+- Uses `X-AJaaS-Signature: sha256=<hex>` header when secret provided
+
+Nodemailer depends on Node.js `net` and `tls` modules, which are not available in CF Workers. It cannot be used directly. **Webhook delivery uses `fetch()` and works natively on CF Workers** — no changes needed.
 
 ### CF Workers Options
 
@@ -507,10 +494,14 @@ The Docker/Node.js path continues to use `NodemailerDelivery` unchanged.
 
 ### Current Model
 
-Environment variables loaded via `process.env`:
-- `ENCRYPTION_KEY` — token encryption
+Environment variables loaded via `process.env` (with `.env` file support via `src/env.ts`):
+- `ENCRYPTION_KEY` — token encryption (32+ chars)
+- `DATA_ENCRYPTION_KEY` — storage-level field encryption (32+ chars)
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` — email config
+- `DB_PATH` — database connection URL (SQLite path or PostgreSQL URL)
 - Feature flags (`SECURITY_ENABLED`, etc.)
+
+Note: `src/env.ts` uses `fs.readFileSync`/`existsSync` — these are not available on CF Workers. On CF, environment comes from `wrangler.jsonc` vars and secrets, and `.dev.vars` for local dev. The `.env` loader is a Docker/Node.js-only concern.
 
 ### CF Workers Model
 
@@ -563,7 +554,8 @@ The `loadConfig()` function currently reads from `process.env`. For CF Workers:
 
 | Secret | Docker (.env) | CF Workers | Notes |
 |--------|--------------|------------|-------|
-| `ENCRYPTION_KEY` | `.env` file | `wrangler secret put` | 32+ chars, AES-256 key |
+| `ENCRYPTION_KEY` | `.env` file | `wrangler secret put` | 32+ chars, token encryption |
+| `DATA_ENCRYPTION_KEY` | `.env` file | `wrangler secret put` | 32+ chars, storage field encryption |
 | `SMTP_HOST/PORT/USER/PASS` | `.env` file | N/A on CF | Node.js path only |
 | `EMAIL_API_KEY` | `.env` file (if used) | `wrangler secret put` | CF path only (Resend/MailChannels) |
 | `SMTP_FROM` / `EMAIL_FROM` | `.env` file | `vars` in wrangler.jsonc | Not sensitive |
@@ -784,6 +776,7 @@ interface Env {
 
   // Secrets (set via wrangler secret put)
   ENCRYPTION_KEY: string;
+  DATA_ENCRYPTION_KEY: string;
   EMAIL_API_KEY: string;
 
   // Environment variables (set in wrangler.jsonc vars)
@@ -807,6 +800,8 @@ interface Env {
 ├── src/
 │   ├── app.ts                    # Hono app definition (shared routes, middleware)
 │   ├── config.ts                 # Configuration loading (works with both envs)
+│   ├── crypto.ts                 # Centralized AES-256-GCM encryption (unchanged)
+│   ├── env.ts                    # .env file loader (Docker/Node.js path only)
 │   │
 │   ├── entrypoints/
 │   │   ├── node.ts               # Node.js entry (Docker path): @hono/node-server
@@ -820,8 +815,10 @@ interface Env {
 │   │   └── messages.ts           # Message generation (unchanged)
 │   │
 │   ├── storage/
-│   │   ├── interface.ts          # Storage interfaces (sync + async)
+│   │   ├── interface.ts          # Async Storage interface + Schedule model (unchanged)
+│   │   ├── factory.ts            # Storage factory — extended for DO (CF path)
 │   │   ├── sqlite.ts             # better-sqlite3 impl (Node.js/Docker path)
+│   │   ├── postgres.ts           # PostgreSQL impl (Node.js/Docker path only)
 │   │   └── do-sqlite.ts          # Durable Object SQLite impl (CF Workers path)
 │   │
 │   ├── durable-objects/
@@ -836,7 +833,8 @@ interface Env {
 │   │
 │   ├── delivery/
 │   │   ├── email.ts              # EmailDelivery interface + Nodemailer + Console
-│   │   └── email-api.ts          # Resend/CF Email Service impl (CF path)
+│   │   ├── email-api.ts          # Resend/CF Email Service impl (CF path)
+│   │   └── webhook.ts            # WebhookDelivery (works on both paths — uses fetch)
 │   │
 │   ├── types/
 │   │   └── env.ts                # CF Worker Env type definitions
@@ -889,6 +887,8 @@ interface Env {
 
 ## 11. Implementation Phases
 
+> **Note:** The original Phase 2 (Async Storage Interface) has been completed on `main`. The `Storage` interface is already fully async, with factory pattern and two backend implementations (SQLite, PostgreSQL). This reduces the plan from 4 phases to 3.
+
 ### Phase 1: Hono Migration (Framework Swap)
 
 **Goal:** Replace Fastify with Hono. All tests pass. Docker deployment works as before.
@@ -897,33 +897,22 @@ interface Env {
 - [ ] Add Hono dependencies: `hono`, `@hono/node-server`, `@hono/swagger-ui`, `@hono/zod-openapi`
 - [ ] Create `src/app.ts` — Hono app with all routes migrated from Fastify
 - [ ] Migrate `src/routes/messages.ts` — Fastify route handlers to Hono handlers
-- [ ] Migrate `src/routes/schedule.ts` — Fastify route handlers to Hono handlers
-- [ ] Migrate `src/auth/middleware.ts` — Fastify `preHandler` to Hono middleware
+- [ ] Migrate `src/routes/schedule.ts` — Fastify route handlers to Hono handlers (incl. webhook fields)
+- [ ] Migrate `src/auth/middleware.ts` — Fastify `preHandler`/`declare module` to Hono middleware (`c.set()`/`c.get()`)
 - [ ] Migrate OpenAPI/Swagger setup from `@fastify/swagger` to `@hono/zod-openapi`
 - [ ] Migrate rate limiting
 - [ ] Migrate static file serving to `@hono/node-server/serve-static`
-- [ ] Update `src/index.ts` (or create `src/entrypoints/node.ts`) to use `@hono/node-server`
+- [ ] Create `src/entrypoints/node.ts` to use `@hono/node-server` (replaces `src/index.ts`)
 - [ ] Update all tests to use Hono's test client instead of Fastify's `inject()`
-- [ ] Remove Fastify dependencies
+- [ ] Remove Fastify dependencies (`fastify`, `@fastify/swagger`, `@fastify/swagger-ui`, `@fastify/rate-limit`, `@fastify/static`)
 - [ ] Update Dockerfile if entry point path changed
 - [ ] Verify Docker build and all tests pass
 
-**No storage or scheduling changes in this phase.**
+**No changes to:** storage, scheduling, crypto, delivery, config, env loading.
 
-### Phase 2: Async Storage Interface
+### Phase 2: Cloudflare Workers Entry Point
 
-**Goal:** Make the Storage interface async-compatible so it works with both synchronous (better-sqlite3) and asynchronous (DO RPC) backends.
-
-**Tasks:**
-- [ ] Define `AsyncStorage` interface alongside the existing `Storage` interface
-- [ ] Create `SyncToAsyncAdapter` that wraps synchronous `Storage` as `AsyncStorage`
-- [ ] Update route handlers and auth middleware to work with `AsyncStorage`
-- [ ] Update tests to work with async storage
-- [ ] Verify no regressions on Docker path
-
-### Phase 3: Cloudflare Workers Entry Point
-
-**Goal:** AJAAS runs on CF Workers with Durable Objects for storage and alarms for scheduling.
+**Goal:** AJaaS runs on CF Workers with Durable Objects for storage and alarms for scheduling.
 
 **Tasks:**
 - [ ] Add `@cloudflare/vite-plugin` and `wrangler` dependencies
@@ -931,29 +920,34 @@ interface Env {
 - [ ] Create `wrangler.jsonc` input configuration (DO bindings, vars, assets, migrations)
 - [ ] Create `src/types/env.ts` with CF binding type definitions
 - [ ] Create `src/entrypoints/worker.ts` — Worker module entry point (exports app + DO class)
-- [ ] Create `src/durable-objects/schedule-manager.ts` — DO with SQLite storage + alarm
-- [ ] Create `src/storage/do-sqlite.ts` — Storage implementation using DO SQLite API
-- [ ] Implement `RpcStorageClient` — async bridge from Worker to DO
+- [ ] Create `src/durable-objects/schedule-manager.ts` — DO with SQLite + alarm + encryption-at-rest
+- [ ] Create `src/storage/do-sqlite.ts` — Storage implementation using DO `SqlStorage` API
+- [ ] Implement `RpcStorageClient` — bridges Worker → DO RPC for the `Storage` interface
+- [ ] Extend storage factory with DO-aware path (or bypass factory on CF)
 - [ ] Create `src/delivery/email-api.ts` — fetch-based email delivery (Resend)
-- [ ] Add `.dev.vars.example` template
+- [ ] Verify `crypto.ts` works under `nodejs_compat` (token encryption + data-at-rest)
+- [ ] Verify `WebhookDelivery` works under CF Workers (uses `fetch` + `createHmac`)
+- [ ] Add `.dev.vars.example` template (ENCRYPTION_KEY, DATA_ENCRYPTION_KEY, EMAIL_API_KEY)
 - [ ] Verify `vite dev` runs locally with workerd (DO, SQLite, Alarms working)
 - [ ] Verify `vite build` produces Worker + SPA output
 - [ ] Verify `wrangler deploy` works end-to-end
 - [ ] Add `deploy:cf` and `dev` scripts to `package.json`
 
-### Phase 4: Testing & Polish
+### Phase 3: Testing & Polish
 
 **Goal:** Both deployment targets are tested, documented, and production-ready.
 
 **Tasks:**
 - [ ] Add CF Workers-specific tests (using Miniflare / `vite preview` with workerd)
 - [ ] Verify DO SQLite storage with alarm-based scheduling
-- [ ] Test secrets management (`wrangler secret put`)
+- [ ] Verify data encryption-at-rest in DO SQLite (recipientEmail, webhookUrl, webhookSecret)
+- [ ] Test webhook delivery end-to-end from DO alarm → WebhookDelivery
+- [ ] Test secrets management (`wrangler secret put` for all 3 secrets)
 - [ ] Add deployment documentation to README
 - [ ] Update PLANNING.md with CF Workers as a deployment option
 - [ ] Test Web UI served via Workers Assets (verify SPA fallback behaviour)
 - [ ] Verify health check endpoint works on both paths
-- [ ] End-to-end testing of schedule creation → alarm execution → email delivery
+- [ ] End-to-end testing of schedule creation → alarm execution → email/webhook delivery
 - [ ] Verify `vite preview` matches production behaviour before deploy
 
 ---
@@ -961,12 +955,12 @@ interface Env {
 ## 12. Key Decisions Required
 
 ### Decision 1: Hono Migration Strategy
-- **Option A:** Replace Fastify with Hono everywhere (recommended)
+- **Option A (Recommended):** Replace Fastify with Hono everywhere
 - **Option B:** Wrapper pattern preserving both frameworks
 - **Status:** Needs confirmation
 
 ### Decision 2: Durable Object Topology
-- **Option A:** Singleton ScheduleManager DO (simpler, recommended for current scale)
+- **Option A (Recommended):** Singleton ScheduleManager DO (simpler, mirrors current model)
 - **Option B:** Per-schedule DO with registry (more scalable, more complex)
 - **Status:** Needs confirmation
 
@@ -976,20 +970,19 @@ interface Env {
 - **Option C:** CF Email Service (most native, but beta)
 - **Status:** Needs selection based on availability and volume needs
 
-### Decision 4: Web Crypto vs nodejs_compat for Encryption
-- **Option A:** Keep `node:crypto` via `nodejs_compat` (less change, larger bundle)
-- **Option B:** Migrate to Web Crypto API (more CF-native, async changes)
-- **Status:** Recommend Option A initially, Option B as future optimization
-
-### Decision 5: OpenAPI Documentation Approach
-- **Option A:** `@hono/zod-openapi` — Zod schemas with OpenAPI decorators (more type-safe)
+### Decision 4: OpenAPI Documentation Approach
+- **Option A (Recommended):** `@hono/zod-openapi` — Zod schemas with OpenAPI decorators (more type-safe)
 - **Option B:** `@hono/swagger-ui` with manually maintained spec
 - **Status:** Recommend Option A as it replaces both `@fastify/swagger` and validation
 
-### Decision 6: Token Portability
-- **Option A:** Tokens must work across both Docker and CF deployments (same format)
-- **Option B:** Tokens are deployment-specific (different encryption keys anyway)
-- **Status:** Likely Option B is sufficient — clarify requirements
+### Decisions Already Resolved
+
+| Decision | Resolution | Rationale |
+|----------|-----------|-----------|
+| Encryption approach | `nodejs_compat` (keep `node:crypto`) | `crypto.ts` is centralized and synchronous; Web Crypto would require async cascading through tokens AND storage encryption. Not worth the change. |
+| Token portability | Deployment-specific (not portable) | Separate deployments use separate `ENCRYPTION_KEY` values anyway. |
+| Async Storage interface | Already done | Completed on `main` — all methods return `Promise`, factory pattern exists. |
+| Web UI on CF | Always on | CDN serves static assets at zero Worker CPU cost; no toggle needed. |
 
 ---
 
@@ -1012,15 +1005,19 @@ interface Env {
 | Hono API incompatibility with existing tests | Medium | Medium | Phase 1 is isolated; verify before proceeding |
 | `croner` library CF compatibility | Low | Medium | Test early; pure JS, should work |
 | CF Email Service not GA when needed | Medium | Low | Resend fallback is straightforward |
-| Web Crypto token format incompatibility | Low | Low | Use `nodejs_compat` initially |
-| Async storage refactor breaks existing code | Medium | Medium | Phase 2 isolates this change |
+| `nodejs_compat` bundle size | Low | Low | Monitor; optimize later if needed |
+| `src/env.ts` imported on CF path | Medium | Medium | Ensure Worker entry point does not import `env.ts` (uses `fs`) |
+| PostgreSQL not usable on CF Workers | N/A | N/A | Not a risk — CF path uses DO SQLite; PostgreSQL is Docker-only |
 
 ### What Doesn't Change
 
 - `MessageService` — pure logic, no runtime dependencies
-- Message templates — data, not code
-- `Schedule` / `RevokedToken` data models
-- SQLite schema
+- `crypto.ts` — centralized encryption module (works via `nodejs_compat`)
+- `TokenService` / `token.ts` — token encryption/decryption
+- `WebhookDelivery` — uses `fetch()` and `createHmac`, both CF-compatible
+- `Storage` interface — already async, DO implementation fulfils it directly
+- `Schedule` / `RevokedToken` data models (including webhook fields)
+- SQLite schema (including webhook columns and encryption-at-rest)
 - Web UI (React SPA)
 - `generate-key.ts` CLI script (Node.js only tool)
 - OpenAPI endpoint definitions (semantics, just different framework syntax)
