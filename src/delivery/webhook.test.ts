@@ -5,8 +5,8 @@ import { WebhookDelivery, WebhookPayload } from './webhook.js';
 describe('WebhookDelivery', () => {
   let delivery: WebhookDelivery;
   const testPayload: WebhookPayload = {
-    recipient: 'Sarah',
-    message: 'Awesome job, Sarah!',
+    recipient: 'Rachel',
+    message: 'Awesome job, Rachel!',
     endpoint: 'awesome',
     timestamp: '2026-02-04T17:00:00.000Z',
   };
@@ -38,7 +38,7 @@ describe('WebhookDelivery', () => {
     expect(url).toBe('https://example.com/webhook');
     expect(options.method).toBe('POST');
     expect(options.headers['Content-Type']).toBe('application/json');
-    expect(options.headers['User-Agent']).toBe('AJAAS-Webhook/0.1.0');
+    expect(options.headers['User-Agent']).toBe('AJaaS-Webhook/0.1.0');
     expect(JSON.parse(options.body)).toEqual(testPayload);
   });
 
@@ -54,7 +54,7 @@ describe('WebhookDelivery', () => {
     );
 
     const [, options] = mockFetch.mock.calls[0];
-    const signature = options.headers['X-AJAAS-Signature'];
+    const signature = options.headers['X-AJaaS-Signature'];
     expect(signature).toBeDefined();
     expect(signature).toMatch(/^sha256=[a-f0-9]{64}$/);
 
@@ -75,7 +75,7 @@ describe('WebhookDelivery', () => {
     );
 
     const [, options] = mockFetch.mock.calls[0];
-    expect(options.headers['X-AJAAS-Signature']).toBeUndefined();
+    expect(options.headers['X-AJaaS-Signature']).toBeUndefined();
   });
 
   it('should return false on non-ok response', async () => {

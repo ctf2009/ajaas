@@ -41,7 +41,7 @@ export class NodemailerDelivery implements EmailDelivery {
             <h1 style="color: #2563eb; margin-bottom: 24px;">🎉 Awesome Job!</h1>
             <p style="font-size: 18px; line-height: 1.6; color: #374151;">${message}</p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;">
-            <p style="font-size: 12px; color: #9ca3af;">Sent via AJAAS - Awesome Job As A Service</p>
+            <p style="font-size: 12px; color: #9ca3af;">Sent via AJaaS - Awesome Job As A Service</p>
           </div>
         `,
       });

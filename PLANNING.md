@@ -1,4 +1,4 @@
-# AJAAS - Awesome Job As A Service
+# AJaaS - Awesome Job As A Service
 
 ## Concept
 
@@ -93,8 +93,8 @@ Encrypted JSON payload using AES-256-GCM:
 ```json
 {
   "jti": "unique-id",
-  "sub": "sarah@company.com",
-  "name": "Sarah",
+  "sub": "rachel@company.com",
+  "name": "Rachel",
   "role": "schedule",
   "exp": 1740000000
 }
@@ -122,7 +122,7 @@ Hierarchical model:
 ### Key Generation
 
 - npm scripts / CLI tool for generating API keys
-- Example: `npm run generate-key -- --name "Sarah" --role schedule --expires 30d`
+- Example: `npm run generate-key -- --name "Rachel" --role schedule --expires 30d`
 
 ---
 

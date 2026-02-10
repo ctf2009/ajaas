@@ -42,7 +42,7 @@ Optional:
   --key            Encryption key (or set ENCRYPTION_KEY env var)
 
 Examples:
-  npm run generate-key -- --sub sarah@example.com --name Sarah --role schedule
+  npm run generate-key -- --sub rachel@example.com --name Rachel --role schedule
   npm run generate-key -- --sub api@example.com --name "API Client" --role read --expires 30d
 `);
     process.exit(1);

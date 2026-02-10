@@ -55,7 +55,7 @@ function App() {
   return (
     <div className="container">
       <header>
-        <h1>AJAAS</h1>
+        <h1>AJaaS</h1>
         <p className="tagline">Awesome Job As A Service</p>
         <p className="subtitle">
           A wholesome API for telling people they're doing great.<br />
@@ -73,7 +73,7 @@ function App() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Sarah"
+                placeholder="Rachel"
               />
             </label>
             <label>
@@ -173,7 +173,7 @@ function App() {
           sometimes I get creative. It lifts morale and ends the week on a high note.
         </p>
         <p>
-          AJAAS is that ritual, as an API. Because everyone deserves to hear they're doing awesome.
+          AJaaS is that ritual, as an API. Because everyone deserves to hear they're doing awesome.
         </p>
       </section>
 

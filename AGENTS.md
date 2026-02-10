@@ -4,7 +4,7 @@ This file provides context for AI agents working on this codebase.
 
 ## Project Overview
 
-AJAAS (Awesome Job As A Service) is a wholesome API that generates personalized compliment messages. Think FOAAS, but positive and encouraging instead of profane.
+AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized compliment messages. Think FOAAS, but positive and encouraging instead of profane.
 
 ## Key Design Decisions
 
