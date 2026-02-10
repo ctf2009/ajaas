@@ -24,6 +24,8 @@ jobs:
 
   ci:
     name: Build & Test
+    needs: lint-pr-title
+    if: always() && (needs.lint-pr-title.result == 'success' || needs.lint-pr-title.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
