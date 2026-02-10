@@ -49,7 +49,7 @@ describe('MessageService', () => {
         for (let i = 0; i < 50; i++) {
           messages.add(service.getRandomMessage('Test'));
         }
-        // With 13 templates, we should get variety
+        // With 30 templates, we should get variety
         expect(messages.size).toBeGreaterThan(1);
       });
     });
@@ -141,7 +141,7 @@ describe('MessageService', () => {
 
     describe('getRandomMessage', () => {
       it('should never return a tough love message', () => {
-        const toughLovePhrases = ['Not legendary', 'survived', 'Adequate'];
+        const toughLovePhrases = ['Not legendary', 'survived', 'Adequate', "seen better", "Not with flair", "writing songs"];
         for (let i = 0; i < 100; i++) {
           const message = service.getRandomMessage('Test');
           for (const phrase of toughLovePhrases) {
