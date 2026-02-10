@@ -15,18 +15,18 @@ describe('Storage Factory', () => {
   });
 
   it('should create SQLiteStorage for :memory: path', async () => {
-    storage = await createStorage({ connectionUrl: ':memory:' });
+    storage = await createStorage({ path: ':memory:' });
     expect(storage).toBeInstanceOf(SQLiteStorage);
   });
 
   it('should create SQLiteStorage for file path', async () => {
-    storage = await createStorage({ connectionUrl: './test.db' });
+    storage = await createStorage({ path: './test.db' });
     expect(storage).toBeInstanceOf(SQLiteStorage);
   });
 
   it('should create SQLiteStorage with encryption key', async () => {
     storage = await createStorage({
-      connectionUrl: ':memory:',
+      path: ':memory:',
       dataEncryptionKey: 'test-encryption-key-32-chars-long!',
     });
     expect(storage).toBeInstanceOf(SQLiteStorage);
@@ -35,13 +35,13 @@ describe('Storage Factory', () => {
   it('should create PostgresStorage for postgresql:// URL', async () => {
     // This test verifies the factory correctly identifies PostgreSQL URLs
     // but we don't actually connect since there's no PostgreSQL server
-    const connectionUrl = 'postgresql://user:pass@localhost:5432/testdb';
+    const path = 'postgresql://user:pass@localhost:5432/testdb';
 
     // We can't fully test PostgreSQL without a running server,
     // but we can verify the factory recognizes the URL pattern
     // by checking the storage type before initialization fails
     try {
-      storage = await createStorage({ connectionUrl });
+      storage = await createStorage({ path });
       // If we get here without error, fail the test
       expect.fail('Expected connection to fail without PostgreSQL server');
     } catch (e) {
@@ -57,10 +57,10 @@ describe('Storage Factory', () => {
   });
 
   it('should create PostgresStorage for postgres:// URL', async () => {
-    const connectionUrl = 'postgres://user:pass@localhost:5432/testdb';
+    const path = 'postgres://user:pass@localhost:5432/testdb';
 
     try {
-      storage = await createStorage({ connectionUrl });
+      storage = await createStorage({ path });
       expect.fail('Expected connection to fail without PostgreSQL server');
     } catch (e) {
       // Expected to fail without a real PostgreSQL server
@@ -75,7 +75,7 @@ describe('Storage Factory', () => {
 
   describe('SQLite functional tests via factory', () => {
     it('should create and retrieve schedules', async () => {
-      storage = await createStorage({ connectionUrl: ':memory:' });
+      storage = await createStorage({ path: ':memory:' });
 
       const schedule = await storage.createSchedule({
         recipient: 'Test User',
@@ -95,7 +95,7 @@ describe('Storage Factory', () => {
     });
 
     it('should handle token revocation', async () => {
-      storage = await createStorage({ connectionUrl: ':memory:' });
+      storage = await createStorage({ path: ':memory:' });
 
       const jti = 'test-token-id';
       expect(await storage.isTokenRevoked(jti)).toBe(false);

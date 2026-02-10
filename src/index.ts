@@ -11,7 +11,7 @@ import { messageRoutes } from './routes/messages.js';
 import { scheduleRoutes } from './routes/schedule.js';
 import { createStorage } from './storage/factory.js';
 import { Storage } from './storage/interface.js';
-import { TokenService } from './auth/token.js';
+import { createTokenService } from './auth/token.js';
 import { MessageService } from './services/messages.js';
 import { Scheduler } from './scheduler/index.js';
 import { ConsoleDelivery, NodemailerDelivery } from './delivery/email.js';
@@ -24,38 +24,13 @@ const config = loadConfig();
 const needsStorage = config.security.enabled || config.endpoints.schedule.enabled;
 
 // Initialize storage (needed for token revocation and/or scheduling)
-let storage: Storage | null = null;
-if (needsStorage) {
-  storage = await createStorage({
-    connectionUrl: config.database.path,
-    dataEncryptionKey: config.database.dataEncryptionKey || undefined,
-  });
-
-  if (!config.database.dataEncryptionKey) {
-    console.warn(
-      'WARNING: DATA_ENCRYPTION_KEY not set. Sensitive schedule data (e.g. email addresses) will be stored unencrypted.'
-    );
-  }
-
-  // Log storage backend type
-  const isPostgres = config.database.path.startsWith('postgresql://') || config.database.path.startsWith('postgres://');
-  console.log(`Storage backend: ${isPostgres ? 'PostgreSQL' : 'SQLite'}`);
-}
+const storage: Storage | null = needsStorage ? await createStorage(config.database) : null;
 
 // Initialize services
 const messageService = new MessageService(config.messages.toughLove);
 
 // Initialize token service (only if security is enabled or schedule endpoints are enabled)
-let tokenService: TokenService | null = null;
-if (needsStorage) {
-  if (!config.security.encryptionKey) {
-    console.warn(
-      'WARNING: ENCRYPTION_KEY not set. Security features will not work properly.'
-    );
-  } else {
-    tokenService = new TokenService(config.security.encryptionKey);
-  }
-}
+const tokenService = needsStorage ? createTokenService(config.security) : null;
 
 // Initialize scheduler and email delivery (only if scheduling is enabled)
 let scheduler: Scheduler | null = null;
@@ -86,7 +61,7 @@ const fastify = Fastify({
 await fastify.register(fastifySwagger, {
   openapi: {
     info: {
-      title: 'AJAAS - Awesome Job As A Service',
+      title: 'AJaaS - Awesome Job As A Service',
       description: 'A wholesome API that generates personalized compliment messages.',
       version: '0.1.0',
     },
@@ -213,7 +188,7 @@ process.on('SIGINT', shutdown);
 // Start server
 try {
   await fastify.listen({ port: config.port, host: config.host });
-  console.log(`AJAAS running at http://${config.host}:${config.port}`);
+  console.log(`AJaaS running at http://${config.host}:${config.port}`);
   console.log(`API docs at http://${config.host}:${config.port}/api/docs`);
   console.log(`Scheduling: ${config.endpoints.schedule.enabled ? 'enabled' : 'disabled'}`);
   console.log(`Security: ${config.security.enabled ? 'enabled' : 'disabled'}`);

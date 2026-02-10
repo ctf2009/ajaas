@@ -19,14 +19,14 @@ export class WebhookDelivery {
       const body = JSON.stringify(payload);
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'User-Agent': 'AJAAS-Webhook/0.1.0',
+        'User-Agent': 'AJaaS-Webhook/0.1.0',
       };
 
       if (secret) {
         const signature = createHmac('sha256', secret)
           .update(body)
           .digest('hex');
-        headers['X-AJAAS-Signature'] = `sha256=${signature}`;
+        headers['X-AJaaS-Signature'] = `sha256=${signature}`;
       }
 
       const response = await fetch(url, {

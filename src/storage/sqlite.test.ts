@@ -38,8 +38,8 @@ describe('SQLiteStorage', () => {
 
   describe('schedules', () => {
     const baseSchedule = {
-      recipient: 'Sarah',
-      recipientEmail: 'sarah@example.com',
+      recipient: 'Rachel',
+      recipientEmail: 'rachel@example.com',
       endpoint: 'weekly',
       cron: '0 17 * * FRI',
       nextRun: Math.floor(Date.now() / 1000) + 3600,
@@ -53,8 +53,8 @@ describe('SQLiteStorage', () => {
 
         expect(schedule.id).toBeTruthy();
         expect(schedule.createdAt).toBeTruthy();
-        expect(schedule.recipient).toBe('Sarah');
-        expect(schedule.recipientEmail).toBe('sarah@example.com');
+        expect(schedule.recipient).toBe('Rachel');
+        expect(schedule.recipientEmail).toBe('rachel@example.com');
         expect(schedule.endpoint).toBe('weekly');
         expect(schedule.cron).toBe('0 17 * * FRI');
         expect(schedule.deliveryMethod).toBe('email');
@@ -189,8 +189,8 @@ describe('SQLiteStorage', () => {
     let encStorage: SQLiteStorage;
 
     const baseSchedule = {
-      recipient: 'Sarah',
-      recipientEmail: 'sarah@example.com',
+      recipient: 'Rachel',
+      recipientEmail: 'rachel@example.com',
       endpoint: 'weekly',
       cron: '0 17 * * FRI',
       nextRun: Math.floor(Date.now() / 1000) + 3600,
@@ -210,7 +210,7 @@ describe('SQLiteStorage', () => {
       const created = await encStorage.createSchedule(baseSchedule);
       const retrieved = await encStorage.getSchedule(created.id);
 
-      expect(retrieved?.recipientEmail).toBe('sarah@example.com');
+      expect(retrieved?.recipientEmail).toBe('rachel@example.com');
     });
 
     it('should store email encrypted in the database', async () => {
@@ -225,8 +225,8 @@ describe('SQLiteStorage', () => {
       const plainCreated = await plainStorage.createSchedule(baseSchedule);
 
       // The encrypted storage should still return the correct email
-      expect(created.recipientEmail).toBe('sarah@example.com');
-      expect(plainCreated.recipientEmail).toBe('sarah@example.com');
+      expect(created.recipientEmail).toBe('rachel@example.com');
+      expect(plainCreated.recipientEmail).toBe('rachel@example.com');
 
       await rawStorage.close();
       await plainStorage.close();
@@ -240,7 +240,7 @@ describe('SQLiteStorage', () => {
 
       const due = await encStorage.getSchedulesDue(Math.floor(Date.now() / 1000));
       expect(due).toHaveLength(1);
-      expect(due[0].recipientEmail).toBe('sarah@example.com');
+      expect(due[0].recipientEmail).toBe('rachel@example.com');
     });
 
     it('should decrypt email correctly in listSchedules', async () => {
@@ -248,7 +248,7 @@ describe('SQLiteStorage', () => {
 
       const list = await encStorage.listSchedules();
       expect(list).toHaveLength(1);
-      expect(list[0].recipientEmail).toBe('sarah@example.com');
+      expect(list[0].recipientEmail).toBe('rachel@example.com');
     });
 
     it('should work without encryption key (plaintext fallback)', async () => {
@@ -256,7 +256,7 @@ describe('SQLiteStorage', () => {
       const created = await plainStorage.createSchedule(baseSchedule);
       const retrieved = await plainStorage.getSchedule(created.id);
 
-      expect(retrieved?.recipientEmail).toBe('sarah@example.com');
+      expect(retrieved?.recipientEmail).toBe('rachel@example.com');
       await plainStorage.close();
     });
   });

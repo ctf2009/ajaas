@@ -35,34 +35,34 @@ describe('Message Routes', () => {
     it('should return a simple message', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah',
+        url: '/api/awesome/Rachel',
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.message).toBe('Awesome job, Sarah!');
+      expect(body.message).toBe('Awesome job, Rachel!');
     });
 
     it('should include attribution when from is provided', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah?from=Mike',
+        url: '/api/awesome/Rachel?from=Mike',
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.message).toBe('Awesome job, Sarah! - Mike');
+      expect(body.message).toBe('Awesome job, Rachel! - Mike');
     });
 
     it('should handle URL-encoded names', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah%20Jane',
+        url: '/api/awesome/Rachel%20Jane',
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.message).toContain('Sarah Jane');
+      expect(body.message).toContain('Rachel Jane');
     });
   });
 
@@ -107,18 +107,18 @@ describe('Message Routes', () => {
     it('should return a message of the specified type', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/message/animal/Sarah',
+        url: '/api/message/animal/Rachel',
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.message).toContain('Sarah');
+      expect(body.message).toContain('Rachel');
     });
 
     it('should return 400 for invalid type', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/message/invalid/Sarah',
+        url: '/api/message/invalid/Rachel',
       });
 
       expect(response.statusCode).toBe(400);
@@ -130,7 +130,7 @@ describe('Message Routes', () => {
     it('should include attribution when from is provided', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/message/absurd/Sarah?from=Team',
+        url: '/api/message/absurd/Rachel?from=Team',
       });
 
       expect(response.statusCode).toBe(200);
@@ -160,56 +160,56 @@ describe('Message Routes', () => {
     it('should return text/plain when Accept: text/plain', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah',
+        url: '/api/awesome/Rachel',
         headers: { accept: 'text/plain' },
       });
 
       expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toContain('text/plain');
-      expect(response.body).toBe('Awesome job, Sarah!');
+      expect(response.body).toBe('Awesome job, Rachel!');
     });
 
     it('should return JSON by default', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah',
+        url: '/api/awesome/Rachel',
       });
 
       expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toContain('application/json');
       const body = JSON.parse(response.body);
-      expect(body.message).toBe('Awesome job, Sarah!');
+      expect(body.message).toBe('Awesome job, Rachel!');
     });
 
     it('should return JSON when Accept: application/json', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah',
+        url: '/api/awesome/Rachel',
         headers: { accept: 'application/json' },
       });
 
       expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toContain('application/json');
       const body = JSON.parse(response.body);
-      expect(body.message).toBe('Awesome job, Sarah!');
+      expect(body.message).toBe('Awesome job, Rachel!');
     });
 
     it('should prefer text/plain when listed first in Accept', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah',
+        url: '/api/awesome/Rachel',
         headers: { accept: 'text/plain, application/json' },
       });
 
       expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toContain('text/plain');
-      expect(response.body).toBe('Awesome job, Sarah!');
+      expect(response.body).toBe('Awesome job, Rachel!');
     });
 
     it('should prefer JSON when listed first in Accept', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah',
+        url: '/api/awesome/Rachel',
         headers: { accept: 'application/json, text/plain' },
       });
 
@@ -244,25 +244,25 @@ describe('Message Routes', () => {
     it('should return text/plain for message type endpoint', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/message/animal/Sarah',
+        url: '/api/message/animal/Rachel',
         headers: { accept: 'text/plain' },
       });
 
       expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toContain('text/plain');
-      expect(response.body).toContain('Sarah');
+      expect(response.body).toContain('Rachel');
     });
 
     it('should include attribution in text/plain response', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/awesome/Sarah?from=Mike',
+        url: '/api/awesome/Rachel?from=Mike',
         headers: { accept: 'text/plain' },
       });
 
       expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toContain('text/plain');
-      expect(response.body).toBe('Awesome job, Sarah! - Mike');
+      expect(response.body).toBe('Awesome job, Rachel! - Mike');
     });
   });
 
@@ -285,7 +285,7 @@ describe('Message Routes', () => {
     it('should return 404 for toughLove type', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/message/toughLove/Sarah',
+        url: '/api/message/toughLove/Rachel',
       });
 
       expect(response.statusCode).toBe(404);

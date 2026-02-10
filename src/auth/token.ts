@@ -64,3 +64,15 @@ export class TokenService {
     return { token: this.encrypt(payload), payload };
   }
 }
+
+export interface TokenServiceOptions {
+  encryptionKey: string;
+}
+
+export function createTokenService(options: TokenServiceOptions): TokenService | null {
+  if (!options.encryptionKey) {
+    console.warn('WARNING: ENCRYPTION_KEY not set. Security features will not work properly.');
+    return null;
+  }
+  return new TokenService(options.encryptionKey);
+}
