@@ -4,7 +4,7 @@ This file provides context for AI agents working on this codebase.
 
 ## Project Overview
 
-AJAAS (Awesome Job As A Service) is a wholesome API that generates personalized compliment messages. Think FOAAS, but positive and encouraging instead of profane.
+AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized compliment messages. Think FOAAS, but positive and encouraging instead of profane.
 
 ## Key Design Decisions
 
@@ -64,6 +64,40 @@ AJAAS (Awesome Job As A Service) is a wholesome API that generates personalized 
 1. Update the storage interface if adding new capabilities
 2. Implement changes in the SQLite adapter
 3. Storage abstraction exists to allow future DynamoDB support (not currently implemented)
+
+## Git & CI/CD
+
+### Commit Messages
+
+This project uses **conventional commits** enforced via PR title validation. PR titles become the commit message on squash-merge and drive automated semantic versioning via release-please.
+
+Format: `<type>: <description>`
+
+| Type | Purpose | Version bump (pre-1.0) |
+|------|---------|----------------------|
+| `feat` | New feature | patch |
+| `fix` | Bug fix | patch |
+| `docs` | Documentation only | none |
+| `chore` | Maintenance, deps, CI | none |
+| `refactor` | Code restructuring | none |
+| `test` | Adding/updating tests | none |
+| `perf` | Performance improvement | patch |
+
+Add `!` after the type for breaking changes (e.g. `feat!: remove endpoint`), which bumps minor while pre-1.0.
+
+### Branching & PRs
+
+- All changes reach `main` through pull requests (no direct pushes)
+- External contributors: fork the repo, branch, and open a PR
+- CI runs on every PR: build, test, and PR title validation
+- Releases only happen from `main` via release-please
+
+### Release Process
+
+Releases are automated via release-please. When PRs with conventional commit titles are merged to `main`, release-please accumulates changes into a Release PR. Merging that Release PR triggers:
+- Git tag and GitHub Release
+- Zip artifact attached to the release
+- Docker image pushed to `ghcr.io/ctf2009/ajaas`
 
 ## Important Notes
 

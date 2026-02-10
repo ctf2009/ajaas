@@ -1,4 +1,4 @@
-# AJAAS - Awesome Job As A Service
+# AJaaS - Awesome Job As A Service
 
 > A wholesome API for telling people they're doing great. Because everyone deserves to hear it.
 
@@ -8,7 +8,7 @@ Every Friday, as I leave the office, I have a little ritual. I walk past my coll
 
 It's a bit of fun. People look forward to it. Sometimes I personalize it, sometimes I get creative. It lifts morale and ends the week on a high note.
 
-**AJAAS is that ritual, as an API.**
+**AJaaS is that ritual, as an API.**
 
 ## Quick Start
 
@@ -25,8 +25,8 @@ npm start
 Visit `http://localhost:3000` for the interactive demo, or dive straight into the API:
 
 ```bash
-curl http://localhost:3000/api/awesome/Sarah
-# → {"message":"Awesome job, Sarah!"}
+curl http://localhost:3000/api/awesome/Rachel
+# → {"message":"Awesome job, Rachel!"}
 
 curl http://localhost:3000/api/weekly/Mike
 # → {"message":"Awesome job this week, Mike. Take the next 2 days off."}
@@ -108,7 +108,7 @@ curl -X POST http://localhost:3000/api/schedule \
   -H "Authorization: Bearer <your-token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "recipient": "Sarah",
+    "recipient": "Rachel",
     "recipientEmail": "sarah@example.com",
     "endpoint": "weekly",
     "cron": "0 17 * * FRI",
@@ -118,7 +118,7 @@ curl -X POST http://localhost:3000/api/schedule \
 
 ## Security
 
-AJAAS uses encrypted tokens (AES-256-GCM) for authentication. Two roles are available:
+AJaaS uses encrypted tokens (AES-256-GCM) for authentication. Two roles are available:
 
 - **read** - Can call message endpoints
 - **schedule** - Can call message endpoints AND manage schedules

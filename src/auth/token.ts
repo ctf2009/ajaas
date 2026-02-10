@@ -1,4 +1,5 @@
-import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
+import { randomBytes } from 'crypto';
+import { deriveKeyBuffer, encrypt, decrypt } from '../crypto.js';
 
 export type Role = 'read' | 'schedule';
 
@@ -10,19 +11,11 @@ export interface TokenPayload {
   exp: number; // Expiry timestamp (unix seconds)
 }
 
-const ALGORITHM = 'aes-256-gcm';
-const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
-
 export class TokenService {
   private key: Buffer;
 
   constructor(encryptionKey: string) {
-    if (!encryptionKey || encryptionKey.length < 32) {
-      throw new Error('Encryption key must be at least 32 characters');
-    }
-    // Use first 32 bytes of the key (256 bits for AES-256)
-    this.key = Buffer.from(encryptionKey.slice(0, 32), 'utf-8');
+    this.key = deriveKeyBuffer(encryptionKey);
   }
 
   generateTokenId(): string {
@@ -30,42 +23,14 @@ export class TokenService {
   }
 
   encrypt(payload: TokenPayload): string {
-    const iv = randomBytes(IV_LENGTH);
-    const cipher = createCipheriv(ALGORITHM, this.key, iv);
-
-    const json = JSON.stringify(payload);
-    const encrypted = Buffer.concat([
-      cipher.update(json, 'utf-8'),
-      cipher.final(),
-    ]);
-    const authTag = cipher.getAuthTag();
-
-    // Format: iv + authTag + encrypted (all base64 encoded together)
-    const combined = Buffer.concat([iv, authTag, encrypted]);
-    return combined.toString('base64url');
+    return encrypt(JSON.stringify(payload), this.key);
   }
 
   decrypt(token: string): TokenPayload | null {
+    const result = decrypt(token, this.key);
+    if (!result) return null;
     try {
-      const combined = Buffer.from(token, 'base64url');
-
-      if (combined.length < IV_LENGTH + AUTH_TAG_LENGTH + 1) {
-        return null;
-      }
-
-      const iv = combined.subarray(0, IV_LENGTH);
-      const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
-      const encrypted = combined.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
-
-      const decipher = createDecipheriv(ALGORITHM, this.key, iv);
-      decipher.setAuthTag(authTag);
-
-      const decrypted = Buffer.concat([
-        decipher.update(encrypted),
-        decipher.final(),
-      ]);
-
-      return JSON.parse(decrypted.toString('utf-8'));
+      return JSON.parse(result);
     } catch {
       return null;
     }
@@ -98,4 +63,16 @@ export class TokenService {
     };
     return { token: this.encrypt(payload), payload };
   }
+}
+
+export interface TokenServiceOptions {
+  encryptionKey: string;
+}
+
+export function createTokenService(options: TokenServiceOptions): TokenService | null {
+  if (!options.encryptionKey) {
+    console.warn('WARNING: ENCRYPTION_KEY not set. Security features will not work properly.');
+    return null;
+  }
+  return new TokenService(options.encryptionKey);
 }

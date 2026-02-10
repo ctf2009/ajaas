@@ -23,6 +23,26 @@ const templates: MessageTemplate[] = [
     template: "You've been as dependable as a salmon swimming upstream, :name. But with less flopping.",
     isToughLove: false,
   },
+  {
+    type: 'animal',
+    template: "You herded those deadlines like a border collie at a sheep convention, :name.",
+    isToughLove: false,
+  },
+  {
+    type: 'animal',
+    template: "You carried this week like a mother duck crossing a highway, :name. Fearlessly.",
+    isToughLove: false,
+  },
+  {
+    type: 'animal',
+    template: "You worked with the quiet determination of an ant carrying a crumb ten times its size, :name.",
+    isToughLove: false,
+  },
+  {
+    type: 'animal',
+    template: "You were busier than a one-legged cat in a sandbox, :name. And somehow you made it look elegant.",
+    isToughLove: false,
+  },
 
   // Absurdist humor
   {
@@ -40,6 +60,26 @@ const templates: MessageTemplate[] = [
     template: "Scientists are baffled by your output, :name. They're calling it 'unreasonably effective.'",
     isToughLove: false,
   },
+  {
+    type: 'absurd',
+    template: "Your work ethic this week was so intense, :name, CERN wants to know if you've discovered a new energy source.",
+    isToughLove: false,
+  },
+  {
+    type: 'absurd',
+    template: "NASA called, :name. They want to study your trajectory because it only goes up.",
+    isToughLove: false,
+  },
+  {
+    type: 'absurd',
+    template: "Your output this week broke the simulation, :name. The devs are still patching it.",
+    isToughLove: false,
+  },
+  {
+    type: 'absurd',
+    template: "The dictionary just called, :name. They're replacing the word 'impressive' with your photo.",
+    isToughLove: false,
+  },
 
   // Self-aware / meta humor
   {
@@ -52,6 +92,21 @@ const templates: MessageTemplate[] = [
     template: "A computer is telling you you're awesome, :name. The machines are on your side.",
     isToughLove: false,
   },
+  {
+    type: 'meta',
+    template: "I'm just an API, :name, but even I can see you're crushing it.",
+    isToughLove: false,
+  },
+  {
+    type: 'meta',
+    template: "This compliment was generated at 200 OK, :name. No errors detected in your performance.",
+    isToughLove: false,
+  },
+  {
+    type: 'meta',
+    template: "According to my algorithms, :name, you are statistically awesome. Sample size: this week.",
+    isToughLove: false,
+  },
 
   // Unexpected compliments
   {
@@ -62,6 +117,21 @@ const templates: MessageTemplate[] = [
   {
     type: 'unexpected',
     template: "You handled this week like a diplomat handles a buffet, :name - with grace and efficiency.",
+    isToughLove: false,
+  },
+  {
+    type: 'unexpected',
+    template: "Your work this week had the same energy as finding money in your coat pocket, :name. A delightful surprise.",
+    isToughLove: false,
+  },
+  {
+    type: 'unexpected',
+    template: "You brought the same energy to Monday that most people save for Friday, :name.",
+    isToughLove: false,
+  },
+  {
+    type: 'unexpected',
+    template: "Somewhere out there, a motivational poster is quoting you, :name.",
     isToughLove: false,
   },
 
@@ -79,6 +149,21 @@ const templates: MessageTemplate[] = [
   {
     type: 'toughLove',
     template: "Adequate, :name. The word you're looking for is adequate. Now go away for 2 days.",
+    isToughLove: true,
+  },
+  {
+    type: 'toughLove',
+    template: "I've seen better, :name. But I've also seen worse. Take 2 days to recalibrate.",
+    isToughLove: true,
+  },
+  {
+    type: 'toughLove',
+    template: "You did the thing, :name. Not with flair, but you did it. Go rest.",
+    isToughLove: true,
+  },
+  {
+    type: 'toughLove',
+    template: "Look, :name, nobody's writing songs about this week. But nobody's filing complaints either. Take 2 days.",
     isToughLove: true,
   },
 ];

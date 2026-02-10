@@ -11,25 +11,25 @@ describe('MessageService', () => {
 
     describe('getSimpleMessage', () => {
       it('should return a simple message with the name', () => {
-        const message = service.getSimpleMessage('Sarah');
-        expect(message).toBe('Awesome job, Sarah!');
+        const message = service.getSimpleMessage('Rachel');
+        expect(message).toBe('Awesome job, Rachel!');
       });
 
       it('should include attribution when from is provided', () => {
-        const message = service.getSimpleMessage('Sarah', 'Mike');
-        expect(message).toBe('Awesome job, Sarah! - Mike');
+        const message = service.getSimpleMessage('Rachel', 'Mike');
+        expect(message).toBe('Awesome job, Rachel! - Mike');
       });
     });
 
     describe('getWeeklyMessage', () => {
       it('should return a weekly message with days off', () => {
-        const message = service.getWeeklyMessage('Sarah');
-        expect(message).toMatch(/Awesome job this week, Sarah\. Take the next \d+ days off\./);
+        const message = service.getWeeklyMessage('Rachel');
+        expect(message).toMatch(/Awesome job this week, Rachel\. Take the next \d+ days off\./);
       });
 
       it('should include attribution when from is provided', () => {
-        const message = service.getWeeklyMessage('Sarah', 'Boss');
-        expect(message).toMatch(/Awesome job this week, Sarah\. Take the next \d+ days off\. - Boss/);
+        const message = service.getWeeklyMessage('Rachel', 'Boss');
+        expect(message).toMatch(/Awesome job this week, Rachel\. Take the next \d+ days off\. - Boss/);
       });
     });
 
@@ -49,44 +49,44 @@ describe('MessageService', () => {
         for (let i = 0; i < 50; i++) {
           messages.add(service.getRandomMessage('Test'));
         }
-        // With 13 templates, we should get variety
+        // With 30 templates, we should get variety
         expect(messages.size).toBeGreaterThan(1);
       });
     });
 
     describe('getMessageByType', () => {
       it('should return an animal message for animal type', () => {
-        const message = service.getMessageByType('animal', 'Sarah');
+        const message = service.getMessageByType('animal', 'Rachel');
         expect(message).not.toBeNull();
-        expect(message).toContain('Sarah');
+        expect(message).toContain('Rachel');
       });
 
       it('should return an absurd message for absurd type', () => {
-        const message = service.getMessageByType('absurd', 'Sarah');
+        const message = service.getMessageByType('absurd', 'Rachel');
         expect(message).not.toBeNull();
-        expect(message).toContain('Sarah');
+        expect(message).toContain('Rachel');
       });
 
       it('should return a meta message for meta type', () => {
-        const message = service.getMessageByType('meta', 'Sarah');
+        const message = service.getMessageByType('meta', 'Rachel');
         expect(message).not.toBeNull();
-        expect(message).toContain('Sarah');
+        expect(message).toContain('Rachel');
       });
 
       it('should return an unexpected message for unexpected type', () => {
-        const message = service.getMessageByType('unexpected', 'Sarah');
+        const message = service.getMessageByType('unexpected', 'Rachel');
         expect(message).not.toBeNull();
-        expect(message).toContain('Sarah');
+        expect(message).toContain('Rachel');
       });
 
       it('should return a toughLove message for toughLove type', () => {
-        const message = service.getMessageByType('toughLove', 'Sarah');
+        const message = service.getMessageByType('toughLove', 'Rachel');
         expect(message).not.toBeNull();
-        expect(message).toContain('Sarah');
+        expect(message).toContain('Rachel');
       });
 
       it('should include attribution when from is provided', () => {
-        const message = service.getMessageByType('animal', 'Sarah', 'Boss');
+        const message = service.getMessageByType('animal', 'Rachel', 'Boss');
         expect(message).toContain('- Boss');
       });
     });
@@ -112,15 +112,15 @@ describe('MessageService', () => {
 
     describe('getMessageByType', () => {
       it('should return null for toughLove type', () => {
-        const message = service.getMessageByType('toughLove', 'Sarah');
+        const message = service.getMessageByType('toughLove', 'Rachel');
         expect(message).toBeNull();
       });
 
       it('should still return messages for other types', () => {
-        expect(service.getMessageByType('animal', 'Sarah')).not.toBeNull();
-        expect(service.getMessageByType('absurd', 'Sarah')).not.toBeNull();
-        expect(service.getMessageByType('meta', 'Sarah')).not.toBeNull();
-        expect(service.getMessageByType('unexpected', 'Sarah')).not.toBeNull();
+        expect(service.getMessageByType('animal', 'Rachel')).not.toBeNull();
+        expect(service.getMessageByType('absurd', 'Rachel')).not.toBeNull();
+        expect(service.getMessageByType('meta', 'Rachel')).not.toBeNull();
+        expect(service.getMessageByType('unexpected', 'Rachel')).not.toBeNull();
       });
     });
 
@@ -141,7 +141,7 @@ describe('MessageService', () => {
 
     describe('getRandomMessage', () => {
       it('should never return a tough love message', () => {
-        const toughLovePhrases = ['Not legendary', 'survived', 'Adequate'];
+        const toughLovePhrases = ['Not legendary', 'survived', 'Adequate', "seen better", "Not with flair", "writing songs"];
         for (let i = 0; i < 100; i++) {
           const message = service.getRandomMessage('Test');
           for (const phrase of toughLovePhrases) {

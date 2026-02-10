@@ -24,8 +24,6 @@ jobs:
 
   ci:
     name: Build & Test
-    needs: lint-pr-title
-    if: always() && (needs.lint-pr-title.result == 'success' || needs.lint-pr-title.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,3 +44,15 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Upload build artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ajaas-snapshot-${{ github.event.pull_request.number }}
+          path: |
+            dist/
+            package.json
+            package-lock.json
+            .env.example
+          retention-days: 7

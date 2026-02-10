@@ -7,7 +7,9 @@ export interface Schedule {
   from?: string;
   cron: string;
   nextRun: number; // Unix timestamp in seconds
-  deliveryMethod: 'email' | 'discord';
+  deliveryMethod: 'email' | 'webhook';
+  webhookUrl?: string;
+  webhookSecret?: string;
   createdBy: string;
   createdAt: number;
 }
@@ -19,17 +21,17 @@ export interface RevokedToken {
 
 export interface Storage {
   // Revocation
-  revokeToken(jti: string): void;
-  isTokenRevoked(jti: string): boolean;
+  revokeToken(jti: string): Promise<void>;
+  isTokenRevoked(jti: string): Promise<boolean>;
 
   // Schedules
-  createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Schedule;
-  getSchedule(id: string): Schedule | null;
-  getSchedulesDue(beforeTimestamp: number): Schedule[];
-  updateScheduleNextRun(id: string, nextRun: number): void;
-  deleteSchedule(id: string): boolean;
-  listSchedules(createdBy?: string): Schedule[];
+  createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Promise<Schedule>;
+  getSchedule(id: string): Promise<Schedule | null>;
+  getSchedulesDue(beforeTimestamp: number): Promise<Schedule[]>;
+  updateScheduleNextRun(id: string, nextRun: number): Promise<void>;
+  deleteSchedule(id: string): Promise<boolean>;
+  listSchedules(createdBy?: string): Promise<Schedule[]>;
 
   // Lifecycle
-  close(): void;
+  close(): Promise<void>;
 }

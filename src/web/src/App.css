@@ -1,5 +1,5 @@
 .container {
-  max-width: 800px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 2rem;
 }
@@ -76,6 +76,7 @@ section h2 {
   background: var(--bg);
   color: var(--text);
   font-size: 1rem;
+  min-width: 180px;
 }
 
 .form-row input:focus,

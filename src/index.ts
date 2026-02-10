@@ -9,8 +9,9 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import { loadConfig } from './config.js';
 import { messageRoutes } from './routes/messages.js';
 import { scheduleRoutes } from './routes/schedule.js';
-import { SQLiteStorage } from './storage/sqlite.js';
-import { TokenService } from './auth/token.js';
+import { createStorage } from './storage/factory.js';
+import { Storage } from './storage/interface.js';
+import { createTokenService } from './auth/token.js';
 import { MessageService } from './services/messages.js';
 import { Scheduler } from './scheduler/index.js';
 import { ConsoleDelivery, NodemailerDelivery } from './delivery/email.js';
@@ -20,41 +21,36 @@ const __dirname = dirname(__filename);
 
 const config = loadConfig();
 
-// Initialize storage
-const storage = new SQLiteStorage(process.env.DB_PATH || ':memory:');
+const needsStorage = config.security.enabled || config.endpoints.schedule.enabled;
+
+// Initialize storage (needed for token revocation and/or scheduling)
+const storage: Storage | null = needsStorage ? await createStorage(config.database) : null;
 
 // Initialize services
 const messageService = new MessageService(config.messages.toughLove);
 
-// Initialize email delivery
-const emailDelivery = process.env.SMTP_HOST
-  ? new NodemailerDelivery({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: process.env.SMTP_USER
-        ? {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS || '',
-          }
-        : undefined,
-      from: process.env.SMTP_FROM || 'ajaas@example.com',
-    })
-  : new ConsoleDelivery();
-
-// Initialize scheduler
-const scheduler = new Scheduler(storage, messageService, emailDelivery);
-
 // Initialize token service (only if security is enabled or schedule endpoints are enabled)
-let tokenService: TokenService | null = null;
-if (config.security.enabled || config.endpoints.schedule.enabled) {
-  if (!config.security.encryptionKey) {
-    console.warn(
-      'WARNING: ENCRYPTION_KEY not set. Security features will not work properly.'
-    );
-  } else {
-    tokenService = new TokenService(config.security.encryptionKey);
-  }
+const tokenService = needsStorage ? createTokenService(config.security) : null;
+
+// Initialize scheduler and email delivery (only if scheduling is enabled)
+let scheduler: Scheduler | null = null;
+if (config.endpoints.schedule.enabled && storage) {
+  const emailDelivery = config.smtp.host
+    ? new NodemailerDelivery({
+        host: config.smtp.host,
+        port: config.smtp.port,
+        secure: config.smtp.secure,
+        auth: config.smtp.user
+          ? {
+              user: config.smtp.user,
+              pass: config.smtp.pass,
+            }
+          : undefined,
+        from: config.smtp.from,
+      })
+    : new ConsoleDelivery();
+
+  scheduler = new Scheduler(storage, messageService, emailDelivery);
 }
 
 const fastify = Fastify({
@@ -65,9 +61,9 @@ const fastify = Fastify({
 await fastify.register(fastifySwagger, {
   openapi: {
     info: {
-      title: 'AJAAS - Awesome Job As A Service',
+      title: 'AJaaS - Awesome Job As A Service',
       description: 'A wholesome API that generates personalized compliment messages.',
-      version: '0.1.0',
+      version: '0.1.0', // x-release-please-version
     },
     servers: [
       {
@@ -128,8 +124,8 @@ if (config.rateLimit.enabled) {
 // Register message routes
 await fastify.register(messageRoutes, { prefix: '/api', config });
 
-// Register schedule routes (only if enabled and token service is available)
-if (config.endpoints.schedule.enabled && tokenService) {
+// Register schedule routes (only if enabled and dependencies are available)
+if (config.endpoints.schedule.enabled && tokenService && storage && scheduler) {
   await fastify.register(scheduleRoutes, {
     prefix: '/api',
     config,
@@ -180,8 +176,8 @@ fastify.get('/health', async () => {
 // Graceful shutdown
 const shutdown = async () => {
   console.log('Shutting down...');
-  scheduler.stop();
-  storage.close();
+  scheduler?.stop();
+  await storage?.close();
   await fastify.close();
   process.exit(0);
 };
@@ -192,7 +188,7 @@ process.on('SIGINT', shutdown);
 // Start server
 try {
   await fastify.listen({ port: config.port, host: config.host });
-  console.log(`AJAAS running at http://${config.host}:${config.port}`);
+  console.log(`AJaaS running at http://${config.host}:${config.port}`);
   console.log(`API docs at http://${config.host}:${config.port}/api/docs`);
   console.log(`Scheduling: ${config.endpoints.schedule.enabled ? 'enabled' : 'disabled'}`);
   console.log(`Security: ${config.security.enabled ? 'enabled' : 'disabled'}`);
