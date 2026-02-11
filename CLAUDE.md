@@ -43,7 +43,7 @@ npm run dev:web      # Web dev server with API proxy
 - `src/` - All source code (TypeScript)
   - `auth/` - Token encryption (AES-256-GCM) and auth middleware
   - `config.ts` - Environment variable configuration loader
-  - `delivery/` - Email delivery (nodemailer)
+  - `delivery/` - Email (Nodemailer) and webhook delivery
   - `index.ts` - Application entry point (Fastify server)
   - `routes/` - API route handlers (messages, schedule)
   - `scheduler/` - Cron-based polling scheduler

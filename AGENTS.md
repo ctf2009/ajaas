@@ -19,13 +19,13 @@ AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized 
 - Tokens are **encrypted** (AES-256-GCM), not just signed
 - Role hierarchy: `schedule` > `read`
 - Schedule endpoints **always** require auth, even if global security is disabled
-- Revocation via `jti` blocklist in SQLite
+- Revocation via `jti` blocklist in storage (SQLite or PostgreSQL)
 
 ### Configuration Philosophy
 
 - Features should be toggleable (landing page, schedule endpoints, security)
 - Sensible defaults for simple deployments
-- No AWS dependencies required for basic usage
+- No cloud-specific dependencies required for basic usage
 
 ## Code Style Guidelines
 
@@ -40,6 +40,13 @@ AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized 
 - React landing page: `src/web/`
 - CLI scripts: `scripts/`
 - Planning doc: `PLANNING.md`
+- Agent instructions: `CLAUDE.md`
+
+### Key Modules
+
+- `src/crypto.ts` - Centralized AES-256-GCM encryption (used by both token service and storage-level field encryption)
+- `src/env.ts` - `.env` file parser and loader (Docker/Node.js path only)
+- `src/config.ts` - Environment variable configuration with validation and defaults
 
 ## Testing
 
@@ -62,8 +69,16 @@ AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized 
 ### Modifying storage
 
 1. Update the storage interface in `src/storage/interface.ts` if adding new capabilities
-2. Implement changes in the SQLite and/or PostgreSQL adapters
-3. Storage abstraction supports SQLite (default) and PostgreSQL backends
+2. Implement changes in **both** the SQLite (`src/storage/sqlite.ts`) and PostgreSQL (`src/storage/postgres.ts`) adapters
+3. Storage factory (`src/storage/factory.ts`) selects backend based on `DB_PATH` (PostgreSQL URL or SQLite file path)
+4. Sensitive fields (`recipientEmail`, `webhookUrl`, `webhookSecret`) are encrypted at rest via `src/crypto.ts` when `DATA_ENCRYPTION_KEY` is set
+
+### Adding or modifying delivery methods
+
+1. Delivery implementations live in `src/delivery/`
+2. Current methods: email (`email.ts` via Nodemailer) and webhook (`webhook.ts` via fetch + HMAC-SHA256)
+3. The `deliveryMethod` field on `Schedule` is typed as `'email' | 'webhook'` in `src/storage/interface.ts`
+4. The scheduler (`src/scheduler/index.ts`) dispatches to the correct delivery based on `schedule.deliveryMethod`
 
 ## Git & CI/CD
 
@@ -81,6 +96,7 @@ Format: `<type>: <description>`
 | `chore` | Maintenance, deps, CI | none |
 | `refactor` | Code restructuring | none |
 | `test` | Adding/updating tests | none |
+| `ci` | CI/CD pipeline changes | none |
 | `perf` | Performance improvement | patch |
 
 Add `!` after the type for breaking changes (e.g. `feat!: remove endpoint`), which bumps minor while pre-1.0.
@@ -104,4 +120,5 @@ Releases are automated via release-please. When PRs with conventional commit tit
 - Schedule endpoints can be completely disabled - don't assume they exist
 - Security can be toggled globally - always check config
 - The `from` parameter on message endpoints is optional attribution
+- Message endpoints support content negotiation: `Accept: text/plain` returns plain text, JSON is the default
 - Keep the tone fun - this project has personality
