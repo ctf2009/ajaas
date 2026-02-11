@@ -18,6 +18,7 @@
     "postinstall": "cd src/web && npm ci"
   },
   "keywords": [
+    "ajaas",
     "api",
     "compliments",
     "awesome",
