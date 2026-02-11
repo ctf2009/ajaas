@@ -13,6 +13,8 @@
     "start": "node dist/entrypoints/node.js",
     "dev:worker": "wrangler dev",
     "deploy:worker": "wrangler deploy",
+    "deploy:worker:full": "npm run build:web && wrangler deploy",
+    "deploy:worker:ajaas": "npm run build:web && wrangler deploy --domain ajaas.io",
     "generate-key": "tsx scripts/generate-key.ts",
     "test": "vitest run",
     "test:watch": "vitest",

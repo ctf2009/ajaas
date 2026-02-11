@@ -291,6 +291,36 @@ Migration from Docker/Container deployment to native **Cloudflare Workers + Dura
 
 The existing Docker/Container deployment path will be preserved. The codebase will support both targets through abstraction layers and build-time selection.
 
+### Deployment Log (2026-02-11)
+
+Initial Cloudflare deployment from local machine was completed successfully for the message-only mode (no storage/security/scheduling), including custom domain attachment.
+
+**What was run**
+- `npm run build:web`
+- `npx wrangler login --browser false`
+- `npx wrangler deploy --domain ajaas.io`
+
+**Observed result**
+- Worker deployed successfully (`ajaas`)
+- Custom domain attached successfully: `ajaas.io`
+- Live checks succeeded:
+  - `https://ajaas.io/health` returned `200`
+  - `https://ajaas.io/` returned `200` (`text/html`)
+  - `https://ajaas.io/api/types` returned valid JSON
+
+### Lessons Learned
+
+- `wrangler deploy --domain <domain>` is enough to attach a custom domain during deployment.
+- Current split build flow works reliably: build SPA first (`build:web`), then deploy worker.
+- Added one-command shortcuts for repeat deploys:
+  - `npm run deploy:worker:full`
+  - `npm run deploy:worker:ajaas`
+- Keeping `SCHEDULE_ENABLED=false`, `SECURITY_ENABLED=false`, and `RATE_LIMIT_ENABLED=false` in `wrangler.jsonc` made first deploy straightforward.
+- Static assets + API routing configuration in `wrangler.jsonc` is correct for this project:
+  - `assets.directory = dist/web`
+  - `run_worker_first = [\"/api/*\", \"/health\"]`
+  - `not_found_handling = \"single-page-application\"`
+
 ### Architecture Comparison
 
 **Current: Docker/Container**
@@ -486,14 +516,17 @@ Uses `@cloudflare/vite-plugin` for a unified build — single `vite build` produ
 
 **Goal:** AJaaS runs on CF Workers with Durable Objects for storage and alarms for scheduling.
 
-- [ ] Add `@cloudflare/vite-plugin` and `wrangler` dependencies
-- [ ] Create root `vite.config.ts`, `wrangler.jsonc`, `src/types/env.ts`
-- [ ] Create `src/entrypoints/worker.ts`
+- [x] Add `wrangler` and Worker runtime type dependencies
+- [x] Create `wrangler.jsonc` (assets + worker-first API routing)
+- [x] Create `src/entrypoints/worker.ts`
+- [x] Validate first local deploy with `wrangler deploy`
+- [x] Attach and validate custom domain (`ajaas.io`)
+- [x] Add one-command deploy scripts (`deploy:worker:full`, `deploy:worker:ajaas`)
 - [ ] Create `src/durable-objects/schedule-manager.ts` (DO + SQLite + alarms)
 - [ ] Create `src/storage/do-sqlite.ts` and `RpcStorageClient`
 - [ ] Create `src/delivery/email-api.ts` (Resend)
 - [ ] Verify crypto, webhook delivery, and local dev under CF Workers runtime
-- [ ] Verify `vite build` and `wrangler deploy` end-to-end
+- [ ] Verify repeatable deploy runbook for new environments
 
 #### Phase 3: Testing & Polish
 
@@ -729,15 +762,19 @@ interface Env {
 
 With `nodejs_compat` and compat date >= `2025-04-01`, the `nodejs_compat_populate_process_env` flag is enabled by default. This means `process.env` is populated from Worker bindings (vars + secrets), so the existing `loadConfig()` in `src/config.ts` works unchanged. The `.env` file loader (`src/env.ts`) uses `fs.readFileSync` which is not available on CF Workers — ensure the Worker entry point does **not** import `env.ts`.
 
-#### Package.json Scripts (post-migration)
+#### Package.json Scripts (current)
 
 ```json
 {
-  "dev": "vite dev",
-  "dev:docker": "tsx watch src/entrypoints/node.ts",
-  "build": "vite build",
-  "build:docker": "tsc && npm --prefix src/web run build",
-  "deploy:cf": "vite build && wrangler deploy",
+  "dev": "tsx watch src/entrypoints/node.ts",
+  "dev:web": "npm --prefix src/web run dev",
+  "dev:worker": "wrangler dev",
+  "build": "tsc && npm --prefix src/web run build",
+  "build:api": "tsc",
+  "build:web": "npm --prefix src/web run build",
+  "deploy:worker": "wrangler deploy",
+  "deploy:worker:full": "npm run build:web && wrangler deploy",
+  "deploy:worker:ajaas": "npm run build:web && wrangler deploy --domain ajaas.io",
   "start": "node dist/entrypoints/node.js"
 }
 ```
