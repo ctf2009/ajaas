@@ -1,22 +1,23 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
+import type { MiddlewareHandler } from 'hono';
 import { TokenService, TokenPayload, Role } from './token.js';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tokenPayload?: TokenPayload;
-  }
-}
+// Hono context variable type — used by routes that access tokenPayload
+export type AuthEnv = {
+  Variables: {
+    tokenPayload: TokenPayload;
+  };
+};
 
 export function createAuthMiddleware(
   tokenService: TokenService,
   isRevoked: (jti: string) => Promise<boolean>
 ) {
-  return function requireAuth(requiredRole: Role) {
-    return async (request: FastifyRequest, reply: FastifyReply) => {
-      const authHeader = request.headers.authorization;
+  return function requireAuth(requiredRole: Role): MiddlewareHandler<AuthEnv> {
+    return async (c, next) => {
+      const authHeader = c.req.header('authorization');
 
       if (!authHeader) {
-        return reply.status(401).send({ error: 'Missing authorization header' });
+        return c.json({ error: 'Missing authorization header' }, 401);
       }
 
       // Support both "Bearer <token>" and just "<token>"
@@ -27,34 +28,37 @@ export function createAuthMiddleware(
       const payload = tokenService.decrypt(token);
 
       if (!payload) {
-        return reply.status(401).send({ error: 'Invalid token' });
+        return c.json({ error: 'Invalid token' }, 401);
       }
 
       if (tokenService.isExpired(payload)) {
-        return reply.status(401).send({ error: 'Token expired' });
+        return c.json({ error: 'Token expired' }, 401);
       }
 
       if (await isRevoked(payload.jti)) {
-        return reply.status(401).send({ error: 'Token revoked' });
+        return c.json({ error: 'Token revoked' }, 401);
       }
 
       if (!tokenService.hasRole(payload, requiredRole)) {
-        return reply.status(403).send({
-          error: `Insufficient permissions. Required role: ${requiredRole}`,
-        });
+        return c.json(
+          { error: `Insufficient permissions. Required role: ${requiredRole}` },
+          403,
+        );
       }
 
-      request.tokenPayload = payload;
+      c.set('tokenPayload', payload);
+      await next();
     };
   };
 }
 
-export function createOptionalAuthMiddleware(tokenService: TokenService) {
-  return async (request: FastifyRequest) => {
-    const authHeader = request.headers.authorization;
+export function createOptionalAuthMiddleware(tokenService: TokenService): MiddlewareHandler<AuthEnv> {
+  return async (c, next) => {
+    const authHeader = c.req.header('authorization');
 
     if (!authHeader) {
-      return; // No auth provided, that's ok for optional
+      await next();
+      return;
     }
 
     const token = authHeader.startsWith('Bearer ')
@@ -64,7 +68,9 @@ export function createOptionalAuthMiddleware(tokenService: TokenService) {
     const payload = tokenService.decrypt(token);
 
     if (payload && !tokenService.isExpired(payload)) {
-      request.tokenPayload = payload;
+      c.set('tokenPayload', payload);
     }
+
+    await next();
   };
 }

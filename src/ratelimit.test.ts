@@ -1,99 +1,70 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Fastify, { FastifyInstance } from 'fastify';
-import fastifyRateLimit from '@fastify/rate-limit';
+import { describe, it, expect } from 'vitest';
+import { Hono } from 'hono';
+import { rateLimiter } from './middleware/ratelimit.js';
 
 describe('Rate Limiting', () => {
-  let app: FastifyInstance;
-
-  beforeEach(async () => {
-    app = Fastify();
-
-    await app.register(fastifyRateLimit, {
-      max: 3,
-      timeWindow: '1 minute',
-      keyGenerator: (request) => request.ip,
-    });
-
-    app.get('/test', async () => {
-      return { message: 'ok' };
-    });
-  });
-
-  afterEach(async () => {
-    await app.close();
-  });
+  function createApp() {
+    const app = new Hono();
+    app.use(
+      '*',
+      rateLimiter({
+        max: 3,
+        windowMs: 60_000,
+        keyGenerator: (c) => c.req.header('x-client-id') || 'ip:127.0.0.1',
+      }),
+    );
+    app.get('/test', (c) => c.json({ message: 'ok' }));
+    return app;
+  }
 
   it('should allow requests under the limit', async () => {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/test',
-    });
-
-    expect(response.statusCode).toBe(200);
+    const response = await createApp().request('http://localhost/test');
+    expect(response.status).toBe(200);
   });
 
   it('should return 429 when rate limit exceeded', async () => {
-    // Make requests up to the limit
+    const app = createApp();
     for (let i = 0; i < 3; i++) {
-      await app.inject({ method: 'GET', url: '/test' });
+      await app.request('http://localhost/test');
     }
 
-    // This request should be rate limited
-    const response = await app.inject({
-      method: 'GET',
-      url: '/test',
-    });
-
-    expect(response.statusCode).toBe(429);
+    const response = await app.request('http://localhost/test');
+    expect(response.status).toBe(429);
   });
 
   it('should include rate limit headers', async () => {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/test',
-    });
-
-    expect(response.headers['x-ratelimit-limit']).toBe('3');
-    expect(response.headers['x-ratelimit-remaining']).toBeDefined();
+    const response = await createApp().request('http://localhost/test');
+    expect(response.headers.get('X-RateLimit-Limit')).toBe('3');
+    expect(response.headers.get('X-RateLimit-Remaining')).toBeDefined();
   });
 });
 
 describe('Rate Limit Key Generator', () => {
   it('should use different keys for different identifiers', async () => {
-    const app = Fastify();
+    const app = new Hono();
+    app.use(
+      '*',
+      rateLimiter({
+        max: 2,
+        windowMs: 60_000,
+        keyGenerator: (c) => {
+          const auth = c.req.header('x-api-key');
+          return auth ? `key:${auth}` : 'ip:127.0.0.1';
+        },
+      }),
+    );
+    app.get('/test', (c) => c.json({ message: 'ok' }));
 
-    await app.register(fastifyRateLimit, {
-      max: 2,
-      timeWindow: '1 minute',
-      keyGenerator: (request) => {
-        // Simulate: use auth header if present, otherwise IP
-        const auth = request.headers['x-api-key'];
-        return auth ? `key:${auth}` : `ip:${request.ip}`;
-      },
-    });
-
-    app.get('/test', async () => ({ message: 'ok' }));
-
-    // Make 2 requests with key "user1" (should exhaust limit)
-    await app.inject({ method: 'GET', url: '/test', headers: { 'x-api-key': 'user1' } });
-    await app.inject({ method: 'GET', url: '/test', headers: { 'x-api-key': 'user1' } });
-
-    // Third request with "user1" should be rate limited
-    const limitedResponse = await app.inject({
-      method: 'GET',
-      url: '/test',
+    await app.request('http://localhost/test', { headers: { 'x-api-key': 'user1' } });
+    await app.request('http://localhost/test', { headers: { 'x-api-key': 'user1' } });
+    const limitedResponse = await app.request('http://localhost/test', {
       headers: { 'x-api-key': 'user1' },
     });
-    expect(limitedResponse.statusCode).toBe(429);
+    expect(limitedResponse.status).toBe(429);
 
-    // But "user2" should still work (different key)
-    const user2Response = await app.inject({
-      method: 'GET',
-      url: '/test',
+    const user2Response = await app.request('http://localhost/test', {
       headers: { 'x-api-key': 'user2' },
     });
-    expect(user2Response.statusCode).toBe(200);
-
-    await app.close();
+    expect(user2Response.status).toBe(200);
   });
 });

@@ -1,10 +1,6 @@
-import { FastifyInstance, FastifyPluginOptions, FastifyReply } from 'fastify';
+import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { MessageService, MessageType } from '../services/messages.js';
-import { Config } from '../config.js';
-
-interface MessageRouteOptions extends FastifyPluginOptions {
-  config: Config;
-}
 
 function wantsText(accept: string | undefined): boolean {
   if (!accept) return false;
@@ -17,199 +13,63 @@ function wantsText(accept: string | undefined): boolean {
   return textIndex < jsonIndex;
 }
 
-function sendMessage(reply: FastifyReply, accept: string | undefined, message: string) {
-  if (wantsText(accept)) {
-    return reply.type('text/plain').send(message);
+function sendMessage(c: Context, message: string) {
+  if (wantsText(c.req.header('accept'))) {
+    return c.text(message);
   }
-  return { message };
+  return c.json({ message });
 }
 
-const nameParamSchema = {
-  type: 'object',
-  properties: {
-    name: { type: 'string', description: 'Recipient name' },
-  },
-  required: ['name'],
-} as const;
+export function messageRoutes(messageService: MessageService): Hono {
+  const app = new Hono();
 
-const fromQuerySchema = {
-  type: 'object',
-  properties: {
-    from: { type: 'string', description: 'Optional sender attribution' },
-  },
-} as const;
+  // GET /awesome/:name - Simple compliment
+  app.get('/awesome/:name', (c) => {
+    const name = c.req.param('name');
+    const from = c.req.query('from');
+    return sendMessage(c, messageService.getSimpleMessage(name, from));
+  });
 
-const messageResponseSchema = {
-  type: 'object',
-  properties: {
-    message: { type: 'string' },
-  },
-} as const;
+  // GET /weekly/:name - Weekly message with days off
+  app.get('/weekly/:name', (c) => {
+    const name = c.req.param('name');
+    const from = c.req.query('from');
+    return sendMessage(c, messageService.getWeeklyMessage(name, from));
+  });
 
-const typeParamSchema = {
-  type: 'object',
-  properties: {
-    type: {
-      type: 'string',
-      enum: ['animal', 'absurd', 'meta', 'unexpected', 'toughLove'],
-      description: 'Message type',
-    },
-    name: { type: 'string', description: 'Recipient name' },
-  },
-  required: ['type', 'name'],
-} as const;
+  // GET /random/:name - Random message type
+  app.get('/random/:name', (c) => {
+    const name = c.req.param('name');
+    const from = c.req.query('from');
+    return sendMessage(c, messageService.getRandomMessage(name, from));
+  });
 
-export async function messageRoutes(
-  fastify: FastifyInstance,
-  options: MessageRouteOptions
-): Promise<void> {
-  const messageService = new MessageService(options.config.messages.toughLove);
+  // GET /message/:type/:name - Specific message type
+  app.get('/message/:type/:name', (c) => {
+    const type = c.req.param('type');
+    const name = c.req.param('name');
+    const from = c.req.query('from');
 
-  // GET /api/awesome/:name - Simple compliment
-  fastify.get<{
-    Params: { name: string };
-    Querystring: { from?: string };
-  }>(
-    '/awesome/:name',
-    {
-      schema: {
-        tags: ['messages'],
-        summary: 'Get a simple awesome message',
-        params: nameParamSchema,
-        querystring: fromQuerySchema,
-        response: {
-          200: messageResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const { name } = request.params;
-      const { from } = request.query;
-      return sendMessage(reply, request.headers.accept, messageService.getSimpleMessage(name, from));
+    const validTypes: MessageType[] = ['animal', 'absurd', 'meta', 'unexpected', 'toughLove'];
+    if (!validTypes.includes(type as MessageType)) {
+      return c.json(
+        { error: `Invalid message type. Available types: ${messageService.getAvailableTypes().join(', ')}` },
+        400,
+      );
     }
-  );
 
-  // GET /api/weekly/:name - Weekly message with days off
-  fastify.get<{
-    Params: { name: string };
-    Querystring: { from?: string };
-  }>(
-    '/weekly/:name',
-    {
-      schema: {
-        tags: ['messages'],
-        summary: 'Get a weekly awesome message with days off',
-        params: nameParamSchema,
-        querystring: fromQuerySchema,
-        response: {
-          200: messageResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const { name } = request.params;
-      const { from } = request.query;
-      return sendMessage(reply, request.headers.accept, messageService.getWeeklyMessage(name, from));
+    const message = messageService.getMessageByType(type as MessageType, name, from);
+    if (!message) {
+      return c.json({ error: `Message type '${type}' is not available` }, 404);
     }
-  );
 
-  // GET /api/random/:name - Random message type
-  fastify.get<{
-    Params: { name: string };
-    Querystring: { from?: string };
-  }>(
-    '/random/:name',
-    {
-      schema: {
-        tags: ['messages'],
-        summary: 'Get a random awesome message',
-        params: nameParamSchema,
-        querystring: fromQuerySchema,
-        response: {
-          200: messageResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const { name } = request.params;
-      const { from } = request.query;
-      return sendMessage(reply, request.headers.accept, messageService.getRandomMessage(name, from));
-    }
-  );
+    return sendMessage(c, message);
+  });
 
-  // GET /api/message/:type/:name - Specific message type
-  fastify.get<{
-    Params: { type: string; name: string };
-    Querystring: { from?: string };
-  }>(
-    '/message/:type/:name',
-    {
-      schema: {
-        tags: ['messages'],
-        summary: 'Get a message of a specific type',
-        params: typeParamSchema,
-        querystring: fromQuerySchema,
-        response: {
-          200: messageResponseSchema,
-          400: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-            },
-          },
-          404: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-            },
-          },
-        },
-      },
-    },
-    async (request, reply) => {
-      const { type, name } = request.params;
-      const { from } = request.query;
+  // GET /types - List available message types
+  app.get('/types', (c) => {
+    return c.json({ types: messageService.getAvailableTypes() });
+  });
 
-      const validTypes: MessageType[] = ['animal', 'absurd', 'meta', 'unexpected', 'toughLove'];
-      if (!validTypes.includes(type as MessageType)) {
-        return reply.status(400).send({
-          error: `Invalid message type. Available types: ${messageService.getAvailableTypes().join(', ')}`,
-        });
-      }
-
-      const message = messageService.getMessageByType(type as MessageType, name, from);
-      if (!message) {
-        return reply.status(404).send({
-          error: `Message type '${type}' is not available`,
-        });
-      }
-
-      return sendMessage(reply, request.headers.accept, message);
-    }
-  );
-
-  // GET /api/types - List available message types
-  fastify.get(
-    '/types',
-    {
-      schema: {
-        tags: ['messages'],
-        summary: 'List available message types',
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              types: {
-                type: 'array',
-                items: { type: 'string' },
-              },
-            },
-          },
-        },
-      },
-    },
-    async () => {
-      return { types: messageService.getAvailableTypes() };
-    }
-  );
+  return app;
 }

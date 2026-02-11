@@ -53,12 +53,17 @@ export class ConfigError extends Error {
 }
 
 export function loadConfig(envFilePath?: string): Config {
-  // Load .env file first — existing env vars take precedence
-  loadEnvFile(envFilePath);
+  // Load .env file first; existing env vars take precedence.
+  // On Workers this may throw due to filesystem access, which is safe to ignore.
+  try {
+    loadEnvFile(envFilePath);
+  } catch {
+    // Intentionally ignored.
+  }
 
   const port = parseInt(process.env.PORT || '3000', 10);
   if (isNaN(port) || port < 0 || port > 65535) {
-    throw new ConfigError(`Invalid PORT: must be a number between 0 and 65535`);
+    throw new ConfigError('Invalid PORT: must be a number between 0 and 65535');
   }
 
   const securityEnabled = getEnvBoolean('SECURITY_ENABLED', false);
@@ -67,7 +72,7 @@ export function loadConfig(envFilePath?: string): Config {
 
   if ((securityEnabled || scheduleEnabled) && encryptionKey && encryptionKey.length < 32) {
     throw new ConfigError(
-      `ENCRYPTION_KEY must be at least 32 characters (got ${encryptionKey.length})`
+      `ENCRYPTION_KEY must be at least 32 characters (got ${encryptionKey.length})`,
     );
   }
 
@@ -75,13 +80,13 @@ export function loadConfig(envFilePath?: string): Config {
 
   if (dataEncryptionKey && dataEncryptionKey.length < 32) {
     throw new ConfigError(
-      `DATA_ENCRYPTION_KEY must be at least 32 characters (got ${dataEncryptionKey.length})`
+      `DATA_ENCRYPTION_KEY must be at least 32 characters (got ${dataEncryptionKey.length})`,
     );
   }
 
   const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX || '100', 10);
   if (isNaN(rateLimitMax) || rateLimitMax < 1) {
-    throw new ConfigError(`Invalid RATE_LIMIT_MAX: must be a positive number`);
+    throw new ConfigError('Invalid RATE_LIMIT_MAX: must be a positive number');
   }
 
   return {
