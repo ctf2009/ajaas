@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.4](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.3...ajaas-v0.1.4) (2026-02-11)
+
+
+### Features
+
+* **web:** add landing features section and reorder demo flow ([54978c4](https://github.com/ctf2009/ajaas/commit/54978c421d6658c2f09143edb82dae7c291437c9))
+* **web:** add shareable card UX improvements and landing page features ([c76d4f0](https://github.com/ctf2009/ajaas/commit/c76d4f07ce1d6d92a16e7712e275e244c6bc5426))
+* **web:** add shareable card view and mobile UI updates ([672ff77](https://github.com/ctf2009/ajaas/commit/672ff7767dea42038133a7369554e428475a1054))
+
+
+### Bug Fixes
+
+* **web:** correct try-it alignment on small screens ([f46d588](https://github.com/ctf2009/ajaas/commit/f46d588956b82757f0d454ab82d435bf78aee754))
+* **web:** serve SPA routes without nested static fallback ([df4b35d](https://github.com/ctf2009/ajaas/commit/df4b35de4d5bb12566d1b05d37d6491d6044c76b))
+
 ## [0.1.3](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.2...ajaas-v0.1.3) (2026-02-11)
 
 
