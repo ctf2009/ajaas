@@ -1,0 +1,163 @@
+.card-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.card-container {
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2.5rem 3rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.card.card-visible {
+  opacity: 1;
+}
+
+.card-greeting {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-message {
+  font-size: 1.5rem;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.card-from {
+  margin-top: 1.5rem;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.card-loading {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.card-error {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-error-hint {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.card-error-hint code {
+  color: var(--primary);
+}
+
+.card-retry {
+  margin-top: 1rem;
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.card-retry:hover {
+  border-color: var(--primary);
+}
+
+.card-meta {
+  margin-top: 1rem;
+}
+
+.card-type {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.2rem 0.6rem;
+}
+
+.card-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.card-action-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.card-action-link:hover {
+  text-decoration: underline;
+}
+
+.card-action-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card-actions a {
+  font-size: 0.9rem;
+}
+
+.card-branding {
+  margin-top: 2rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.card-branding a {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.card-branding a:hover {
+  color: var(--primary);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .card-message {
+    font-size: 1.25rem;
+  }
+
+  .card-greeting {
+    font-size: 1.1rem;
+  }
+}
