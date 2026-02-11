@@ -26,13 +26,13 @@ Visit `http://localhost:3000` for the interactive demo, or dive straight into th
 
 ```bash
 curl http://localhost:3000/api/awesome/Rachel
-# → {"message":"Awesome job, Rachel!"}
+# -> {"message":"Awesome job, Rachel!"}
 
 curl http://localhost:3000/api/weekly/Mike
-# → {"message":"Awesome job this week, Mike. Take the next 2 days off."}
+# -> {"message":"Awesome job this week, Mike. Take the next 2 days off."}
 
 curl "http://localhost:3000/api/random/Alex?from=Boss"
-# → {"message":"You crushed it so hard this week, Alex, geologists want to study the impact site. - Boss"}
+# -> {"message":"You crushed it so hard this week, Alex, geologists want to study the impact site. - Boss"}
 ```
 
 ## API Endpoints
@@ -157,10 +157,10 @@ Examples:
 feat: add Discord delivery method
 fix(scheduler): correct cron timezone handling
 docs: update API endpoint table in README
-chore: bump fastify to v5.3.0
+chore: bump hono and wrangler
 ```
 
-PR titles are validated in CI — builds will not run if the title does not follow conventional commits.
+PR titles are validated in CI - builds will not run if the title does not follow conventional commits.
 
 Release versions are managed automatically by [release-please](https://github.com/googleapis/release-please) based on commit types (`feat` = minor, `fix` = patch).
 
@@ -214,22 +214,28 @@ docker run -p 3000:3000 \
 
 ## Project Structure
 
-```
-├── src/
-│   ├── auth/             # Token encryption & middleware
-│   ├── delivery/         # Email delivery
-│   ├── routes/           # API endpoints
-│   ├── scheduler/        # Polling scheduler
-│   ├── services/         # Message generation
-│   ├── storage/          # SQLite storage
-│   ├── config.ts         # Configuration loader
-│   ├── index.ts          # Application entry point
-│   └── web/              # React landing page (Vite)
-├── scripts/              # CLI tools
-├── vitest.config.ts      # Test configuration
-├── tsconfig.json         # TypeScript configuration
-├── Dockerfile
-└── package.json
+```text
+src/
+  auth/               # Token encryption and middleware
+  delivery/           # Email and webhook delivery
+  entrypoints/
+    node.ts           # Local/Docker runtime entrypoint
+    worker.ts         # Cloudflare Worker entrypoint
+  middleware/         # Shared middleware (rate limiter)
+  routes/             # API endpoints
+  scheduler/          # Polling scheduler (Node runtime)
+  services/           # Message generation
+  storage/            # SQLite/PostgreSQL adapters
+  app.ts              # Shared Hono app factory
+  config.ts           # Configuration loader
+  openapi.ts          # OpenAPI spec object
+  web/                # React landing page (Vite)
+scripts/              # CLI tools
+vitest.config.ts      # Test configuration
+tsconfig.json         # TypeScript configuration
+Dockerfile
+package.json
+wrangler.jsonc        # Cloudflare Worker configuration
 ```
 
 ## License

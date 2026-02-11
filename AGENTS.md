@@ -30,7 +30,7 @@ AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized 
 ## Code Style Guidelines
 
 - TypeScript with strict mode
-- Fastify for API routes with JSON Schema validation
+- Hono for API routes with route-local validation and explicit response handling
 - Code-first OpenAPI (schemas in route definitions)
 - Keep it simple - this is a fun project, not enterprise software
 

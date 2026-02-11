@@ -13,30 +13,27 @@ Inspired by FOAAS, but wholesome instead of profane.
 The planning items below are largely independent, but some have natural ordering constraints:
 
 ```
-1. General Refactor (can start now)
-   └── No dependencies — clean up the existing codebase first
+1. General Refactor ← CORS done, other items remain
+   └── No dependencies — clean up the existing codebase
 
-2. Token Revocation Refinement (can start now, independent of refactor)
-   └── No dependency on Hono migration — works with current Fastify routes
+2. Token Revocation Refinement (can start now)
    └── Storage interface changes carry forward to CF Workers path
 
 3. Web UI Enhancements (can start now)
-   └── No dependency on Hono migration — React SPA + current Fastify API
    └── Feature discovery uses existing /health endpoint
 
-4. CF Workers Migration Phase 1: Hono Migration
-   └── Should come AFTER items 1-3 are stable (less churn during migration)
-   └── All existing tests must pass before starting
+4. CF Workers Migration Phase 1: Hono Migration ← COMPLETE
+   └── Fastify replaced with Hono everywhere
 
-5. CF Workers Migration Phase 2: Workers Entry Point
-   └── Depends on Phase 1 (Hono) being complete
-   └── Token revocation changes will already be in Storage interface
+5. CF Workers Migration Phase 2: Workers Entry Point ← PARTIAL
+   └── Basic Worker entry point done, deployed to ajaas.io
+   └── Durable Objects, email-api, RPC client still pending
 
 6. CF Workers Migration Phase 3: Testing & Polish
    └── Depends on Phase 2
 ```
 
-**Recommendation:** Complete items 1-3 first (in any order, or in parallel), then proceed with the CF Workers migration phases sequentially.
+**Recommendation:** Items 1-3 can be done in any order. Phase 2 remaining work (Durable Objects) is the next major milestone.
 
 ---
 
@@ -93,7 +90,7 @@ Start with an admin revocation endpoint only. Token inventory (persisting token 
    - Returns `{ "revoked": true, "jti": "..." }`
 
 3. **Register admin routes in app**
-   - Register in `src/index.ts` alongside schedule routes
+   - Register in `src/app.ts` alongside schedule routes
    - Admin routes always require auth (same pattern as schedule routes)
 
 4. **Add revocation cleanup with fixed TTL**
@@ -205,7 +202,7 @@ This requires adding client-side routing to the React SPA.
   - `/card/:type/:name` → `CardView` component
 - [ ] Add a "Share" button to the try-it demo that generates the card URL
 - [ ] Style the card view — full viewport, centered message, clean typography
-- [ ] SPA fallback already works (non-API routes serve `index.html` via Fastify static, and `not_found_handling: "single-page-application"` on CF Workers)
+- [ ] SPA fallback already works (non-API routes serve `index.html` via `@hono/node-server/serve-static`, and `not_found_handling: "single-page-application"` on CF Workers)
 
 **Design notes:**
 - The card should feel like receiving a personal message, not like visiting an API docs page
@@ -217,38 +214,15 @@ This requires adding client-side routing to the React SPA.
 
 ## General Refactor
 
-### CORS
+### CORS ✅
 
-There is **no CORS handling** in the codebase. The landing page works because it's same-origin (`/api/*` served alongside the SPA), but any external consumer calling the API from a different domain will be blocked by the browser.
+CORS is implemented using Hono's built-in `hono/cors` middleware, applied to `/api/*` and `/health` routes in `src/app.ts`.
 
-**Current state:**
-- No `@fastify/cors` registered
-- No `Access-Control-*` headers set anywhere in `src/`
-- External API consumers (e.g., someone embedding AJaaS messages in their own site) cannot call the API from the browser
-
-**Implementation:**
-
-For Fastify (current):
-- [ ] Add `@fastify/cors` dependency
-- [ ] Register in `src/index.ts` with configurable origin
-- [ ] Add `CORS_ORIGIN` env var to `src/config.ts` (default: `*` for open API, or restrict to specific domains)
-
-For Hono (post-migration):
-- Hono has built-in CORS middleware via `hono/cors`
-- Same config approach — this carries forward naturally
-
-**Configuration options:**
-```yaml
-cors:
-  origin: '*'              # Allow all origins (open public API)
-  # origin: 'https://example.com'  # Restrict to specific domain
-```
-
-**Considerations:**
-- AJaaS is designed as a public API — defaulting to `origin: '*'` makes sense for message endpoints
-- Schedule and admin endpoints are already auth-gated, so CORS `*` is safe (tokens are required)
-- `credentials: true` should NOT be set with `origin: '*'` (browser security restriction)
-- Preflight `OPTIONS` requests need to be handled (the CORS plugins handle this automatically)
+- **Config:** `CORS_ORIGIN` env var (default: `*` for open public API)
+- **Config type:** `config.cors.origin` in `src/config.ts`
+- AJaaS is designed as a public API — `origin: '*'` is appropriate for message endpoints
+- Schedule and admin endpoints are auth-gated, so CORS `*` is safe
+- Preflight `OPTIONS` requests are handled automatically by the middleware
 
 ### Code Quality
 
@@ -274,7 +248,6 @@ cors:
 ### Dependencies
 
 - [ ] **Audit unused dependencies** — check if all dependencies in `package.json` are actually imported in the source code.
-- [ ] **`@fastify/static`** — verify this is in `dependencies` not `devDependencies` (it's needed at runtime for the Docker path).
 - [ ] **Type packages** — `@types/pg`, `@types/better-sqlite3`, `@types/nodemailer` should be in `devDependencies` (they are — just confirm after any changes).
 
 ### Documentation Consistency
@@ -291,16 +264,47 @@ Migration from Docker/Container deployment to native **Cloudflare Workers + Dura
 
 The existing Docker/Container deployment path will be preserved. The codebase will support both targets through abstraction layers and build-time selection.
 
+### Deployment Log (2026-02-11)
+
+Initial Cloudflare deployment from local machine was completed successfully for the message-only mode (no storage/security/scheduling), including custom domain attachment.
+
+**What was run**
+- `npm run build:web`
+- `npx wrangler login --browser false`
+- `npx wrangler deploy --domain ajaas.io`
+
+**Observed result**
+- Worker deployed successfully (`ajaas`)
+- Custom domain attached successfully: `ajaas.io`
+- Live checks succeeded:
+  - `https://ajaas.io/health` returned `200`
+  - `https://ajaas.io/` returned `200` (`text/html`)
+  - `https://ajaas.io/api/types` returned valid JSON
+
+### Lessons Learned
+
+- `wrangler deploy --domain <domain>` is enough to attach a custom domain during deployment.
+- Current split build flow works reliably: build SPA first (`build:web`), then deploy worker.
+- Added one-command shortcuts for repeat deploys:
+  - `npm run deploy:worker:full`
+  - `npm run deploy:worker:domain` (edit domain placeholder in package.json)
+- Keeping `SCHEDULE_ENABLED=false`, `SECURITY_ENABLED=false`, and `RATE_LIMIT_ENABLED=false` in `wrangler.jsonc` made first deploy straightforward.
+- Static assets + API routing configuration in `wrangler.jsonc` is correct for this project:
+  - `assets.directory = dist/web`
+  - `run_worker_first = [\"/api/*\", \"/health\"]`
+  - `not_found_handling = \"single-page-application\"`
+
 ### Architecture Comparison
 
-**Current: Docker/Container**
+**Current: Docker/Container (Hono on Node.js)**
 
 ```
 Client Request
     |
     v
-[Fastify on Node.js]
+[Hono on Node.js via @hono/node-server]
     ├── Routes (messages, schedule)
+    ├── CORS middleware (hono/cors, configurable origin)
     ├── Auth middleware (AES-256-GCM via src/crypto.ts)
     ├── MessageService (in-memory templates)
     ├── Scheduler (setInterval polling loop)
@@ -313,7 +317,7 @@ Client Request
     └── Data encryption at rest (recipientEmail, webhookUrl, webhookSecret)
 ```
 
-**Proposed: Cloudflare Workers**
+**Target: Cloudflare Workers (with Durable Objects)**
 
 ```
 Client Request
@@ -334,18 +338,18 @@ Client Request
         └── Webhook (fetch + HMAC-SHA256 signing — works as-is)
 ```
 
-### HTTP Framework: Hono Migration
+### HTTP Framework: Hono Migration ✅
 
-Fastify cannot run on Workers (relies on Node.js HTTP server primitives). Replace with Hono everywhere — it runs natively on Node.js (`@hono/node-server`), CF Workers, Bun, and Deno.
+Fastify has been fully replaced with Hono. The migration is complete — all routes, middleware, tests, and entrypoints use Hono.
 
-| Fastify Plugin | Hono Equivalent |
-|---------------|-----------------|
-| `@fastify/swagger` | `@hono/zod-openapi` |
+| Former Fastify Plugin | Hono Replacement (implemented) |
+|----------------------|-------------------------------|
+| `@fastify/swagger` | Static OpenAPI spec object in `src/openapi.ts` |
 | `@fastify/swagger-ui` | `@hono/swagger-ui` |
 | `@fastify/cors` | `hono/cors` (built-in middleware) |
-| `@fastify/rate-limit` | `hono/rate-limiter` or custom middleware |
+| `@fastify/rate-limit` | Custom `src/middleware/ratelimit.ts` (in-memory) |
 | `@fastify/static` | `@hono/node-server/serve-static` (Node) / Workers Assets (CF) |
-| Fastify `preHandler` | Hono middleware |
+| Fastify `preHandler` | Hono middleware via `MiddlewareHandler<AuthEnv>` |
 
 ### Storage: Durable Objects SQLite
 
@@ -398,14 +402,14 @@ On CF Workers, static assets are served by the CDN via **Workers Assets** — th
 
 ### Build Pipeline
 
-Uses `@cloudflare/vite-plugin` for a unified build — single `vite build` produces both the React SPA and bundled Worker code.
+The current pipeline uses a split build: `tsc` for the API, Vite for the SPA, and `wrangler deploy` bundles the Worker entry with esbuild.
 
 | | CF Workers | Docker / Node.js |
 |--|-----------|------------------|
-| **API build** | Vite bundles Worker entry | `tsc` compiles to `dist/` |
-| **Web build** | Vite builds SPA alongside Worker | Separate `npm run build:web` |
-| **Local dev** | `vite dev` (runs in `workerd`) | `tsx watch src/entrypoints/node.ts` |
-| **Deploy** | `wrangler deploy` | `docker build` + `docker run` |
+| **API build** | `wrangler deploy` bundles via esbuild | `tsc` compiles to `dist/` |
+| **Web build** | `npm run build:web` (Vite, outputs to `dist/web`) | Same |
+| **Local dev** | `wrangler dev` | `tsx watch src/entrypoints/node.ts` |
+| **Deploy** | `npm run deploy:worker:full` | `docker build` + `docker run` |
 
 ### Proposed Project Structure
 
@@ -467,33 +471,37 @@ Uses `@cloudflare/vite-plugin` for a unified build — single `vite build` produ
 
 ### Implementation Phases
 
-#### Phase 1: Hono Migration
+#### Phase 1: Hono Migration ✅
 
 **Goal:** Replace Fastify with Hono. All tests pass. Docker deployment works as before.
 
-- [ ] Add Hono dependencies (`hono`, `@hono/node-server`, `@hono/swagger-ui`, `@hono/zod-openapi`)
-- [ ] Create `src/app.ts` — Hono app with all routes migrated from Fastify
-- [ ] Migrate route handlers (`messages.ts`, `schedule.ts`)
-- [ ] Migrate auth middleware to Hono middleware pattern
-- [ ] Migrate OpenAPI/Swagger to `@hono/zod-openapi`
-- [ ] Migrate rate limiting and static file serving
-- [ ] Create `src/entrypoints/node.ts` (replaces `src/index.ts`)
-- [ ] Update tests to use Hono's test client
-- [ ] Remove Fastify dependencies
-- [ ] Verify Docker build and all tests pass
+- [x] Add Hono dependencies (`hono`, `@hono/node-server`, `@hono/swagger-ui`)
+- [x] Create `src/app.ts` — Hono app factory with all routes, CORS, rate limiting
+- [x] Migrate route handlers (`messages.ts`, `schedule.ts`)
+- [x] Migrate auth middleware to Hono middleware pattern (`MiddlewareHandler<AuthEnv>`)
+- [x] Create static OpenAPI spec (`src/openapi.ts`) with `@hono/swagger-ui`
+- [x] Create custom rate limiter (`src/middleware/ratelimit.ts`)
+- [x] Migrate static file serving to `@hono/node-server/serve-static`
+- [x] Create `src/entrypoints/node.ts` (replaces `src/index.ts`)
+- [x] Update tests to use Hono's `app.request()` test pattern
+- [x] Remove all Fastify dependencies
+- [x] All 122 tests pass, TypeScript compiles cleanly
 
 #### Phase 2: Cloudflare Workers Entry Point
 
 **Goal:** AJaaS runs on CF Workers with Durable Objects for storage and alarms for scheduling.
 
-- [ ] Add `@cloudflare/vite-plugin` and `wrangler` dependencies
-- [ ] Create root `vite.config.ts`, `wrangler.jsonc`, `src/types/env.ts`
-- [ ] Create `src/entrypoints/worker.ts`
+- [x] Add `wrangler` and Worker runtime type dependencies
+- [x] Create `wrangler.jsonc` (assets + worker-first API routing)
+- [x] Create `src/entrypoints/worker.ts`
+- [x] Validate first local deploy with `wrangler deploy`
+- [x] Attach and validate custom domain (`ajaas.io`)
+- [x] Add one-command deploy scripts (`deploy:worker:full`, `deploy:worker:domain`)
 - [ ] Create `src/durable-objects/schedule-manager.ts` (DO + SQLite + alarms)
 - [ ] Create `src/storage/do-sqlite.ts` and `RpcStorageClient`
 - [ ] Create `src/delivery/email-api.ts` (Resend)
 - [ ] Verify crypto, webhook delivery, and local dev under CF Workers runtime
-- [ ] Verify `vite build` and `wrangler deploy` end-to-end
+- [ ] Verify repeatable deploy runbook for new environments
 
 #### Phase 3: Testing & Polish
 
@@ -509,10 +517,12 @@ Uses `@cloudflare/vite-plugin` for a unified build — single `vite build` produ
 
 | Decision | Resolution |
 |----------|-----------|
-| Hono migration strategy | Replace Fastify with Hono everywhere |
+| Hono migration strategy | ✅ Fastify fully replaced with Hono |
 | DO topology | Singleton ScheduleManager DO |
 | Email provider for CF | Resend (stable, available now) |
-| OpenAPI approach | `@hono/zod-openapi` (replaces `@fastify/swagger` + validation) |
+| OpenAPI approach | Static spec object in `src/openapi.ts` + `@hono/swagger-ui` |
+| Rate limiting approach | Custom in-memory middleware (`src/middleware/ratelimit.ts`) |
+| CORS approach | ✅ `hono/cors` with configurable `CORS_ORIGIN` env var |
 | Encryption approach | `nodejs_compat` — keep `node:crypto`, no Web Crypto migration |
 | Async Storage interface | Already complete on `main` |
 | Web UI on CF | Always on — CDN serves at zero Worker CPU cost |
@@ -522,79 +532,15 @@ Uses `@cloudflare/vite-plugin` for a unified build — single `vite build` produ
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| Hono API incompatibility with tests | Medium | Phase 1 is isolated |
+| ~~Hono API incompatibility with tests~~ | ~~Medium~~ | ✅ Resolved — all 122 tests pass |
 | `croner` CF compatibility | Low | Pure JS, should work |
 | CF Email Service not GA | Medium | Resend fallback |
-| `src/env.ts` imported on CF path | Medium | Worker entry must not import it |
+| `src/env.ts` imported on CF path | ~~Medium~~ | ✅ Resolved — `loadConfig()` wraps `loadEnvFile()` in try/catch |
 | 30s CPU time limit (Workers paid plan) | Low | Keep handlers fast, offload to DO |
 
 ### Implementation Reference
 
-This section provides concrete code examples and configuration templates to reduce research time during implementation.
-
-#### Hono Route Migration Example
-
-```typescript
-// Current Fastify (src/routes/messages.ts)
-fastify.get('/awesome/:name', { schema: {...} }, async (request, reply) => {
-  const { name } = request.params as { name: string };
-  const from = (request.query as { from?: string }).from;
-  const message = messageService.getSimpleMessage(name, from);
-  return sendMessage(reply, request.headers.accept, message);
-});
-
-// Hono equivalent
-app.get('/awesome/:name', (c) => {
-  const name = c.req.param('name');
-  const from = c.req.query('from');
-  const message = messageService.getSimpleMessage(name, from);
-  if (wantsText(c.req.header('accept'))) {
-    return c.text(message);
-  }
-  return c.json({ message });
-});
-```
-
-#### Auth Middleware Migration
-
-```typescript
-// Current Fastify: preHandler hook + module augmentation
-fastify.addHook('preHandler', requireAuth('schedule'));
-// request.tokenPayload accessed via declare module
-
-// Hono equivalent: middleware + context variables
-const authMiddleware = (requiredRole: Role) => {
-  return async (c: Context, next: Next) => {
-    const token = c.req.header('authorization')?.replace('Bearer ', '');
-    const payload = tokenService.decrypt(token);
-    // ... validation ...
-    c.set('tokenPayload', payload);
-    await next();
-  };
-};
-// Access via c.get('tokenPayload')
-```
-
-#### Entrypoint: Node.js (Docker path)
-
-```typescript
-// src/entrypoints/node.ts
-import { serve } from '@hono/node-server';
-import { app } from '../app.js';
-
-const config = loadConfig();
-// ... initialize storage, scheduler, delivery ...
-serve({ fetch: app.fetch, port: config.port, hostname: config.host });
-```
-
-#### Entrypoint: CF Worker
-
-```typescript
-// src/entrypoints/worker.ts
-import { app } from '../app.js';
-export default app;
-export { ScheduleManager } from '../durable-objects/schedule-manager.js';
-```
+This section provides code examples and configuration templates for remaining work (Durable Objects, email API).
 
 #### DO ScheduleManager (alarm-based scheduling)
 
@@ -729,15 +675,19 @@ interface Env {
 
 With `nodejs_compat` and compat date >= `2025-04-01`, the `nodejs_compat_populate_process_env` flag is enabled by default. This means `process.env` is populated from Worker bindings (vars + secrets), so the existing `loadConfig()` in `src/config.ts` works unchanged. The `.env` file loader (`src/env.ts`) uses `fs.readFileSync` which is not available on CF Workers — ensure the Worker entry point does **not** import `env.ts`.
 
-#### Package.json Scripts (post-migration)
+#### Package.json Scripts (current)
 
 ```json
 {
-  "dev": "vite dev",
-  "dev:docker": "tsx watch src/entrypoints/node.ts",
-  "build": "vite build",
-  "build:docker": "tsc && npm --prefix src/web run build",
-  "deploy:cf": "vite build && wrangler deploy",
+  "dev": "tsx watch src/entrypoints/node.ts",
+  "dev:web": "npm --prefix src/web run dev",
+  "dev:worker": "wrangler dev",
+  "build": "tsc && npm --prefix src/web run build",
+  "build:api": "tsc",
+  "build:web": "npm --prefix src/web run build",
+  "deploy:worker": "wrangler deploy",
+  "deploy:worker:full": "npm run build:web && wrangler deploy",
+  "deploy:worker:domain": "npm run build:web && wrangler deploy --domain your-domain.example.com",
   "start": "node dist/entrypoints/node.js"
 }
 ```

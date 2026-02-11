@@ -128,20 +128,39 @@ export class PostgresStorage implements Storage {
   }
 
   /**
-   * Get schedules that are due for processing.
-   * Uses FOR UPDATE SKIP LOCKED to safely handle concurrent polling:
+   * Get schedules that are due for processing and atomically advance their next_run.
+   * Uses a transaction with FOR UPDATE SKIP LOCKED to safely handle concurrent polling:
    * - Locks rows to prevent other workers from processing the same schedules
    * - SKIP LOCKED means if another worker already locked a row, skip it
-   * - This enables safe horizontal scaling of scheduler workers
+   * - next_run is set to 0 within the transaction so other pollers won't re-select them
+   * - The caller is responsible for setting the real next_run after execution
    */
   async getSchedulesDue(beforeTimestamp: number): Promise<Schedule[]> {
-    const result = await this.pool.query(
-      `SELECT * FROM schedules
-       WHERE next_run <= $1
-       FOR UPDATE SKIP LOCKED`,
-      [beforeTimestamp]
-    );
-    return result.rows.map((row) => this.rowToSchedule(row));
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `SELECT * FROM schedules
+         WHERE next_run <= $1
+         FOR UPDATE SKIP LOCKED`,
+        [beforeTimestamp]
+      );
+      // Mark selected rows so concurrent pollers won't re-select them
+      if (result.rows.length > 0) {
+        const ids = result.rows.map((r) => r.id);
+        await client.query(
+          `UPDATE schedules SET next_run = 0 WHERE id = ANY($1)`,
+          [ids]
+        );
+      }
+      await client.query('COMMIT');
+      return result.rows.map((row) => this.rowToSchedule(row));
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async updateScheduleNextRun(id: string, nextRun: number): Promise<void> {

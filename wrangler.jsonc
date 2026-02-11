@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ajaas",
+  "main": "src/entrypoints/worker.ts",
+  "compatibility_date": "2026-02-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist/web",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/health"]
+  },
+  "vars": {
+    "SCHEDULE_ENABLED": "false",
+    "SECURITY_ENABLED": "false",
+    "RATE_LIMIT_ENABLED": "false"
+  }
+}
