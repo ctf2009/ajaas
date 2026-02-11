@@ -40,11 +40,21 @@ export function scheduleRoutes(
 
   // POST /schedule - Create a new schedule
   app.post('/schedule', requireAuth('schedule'), async (c) => {
-    const body = await c.req.json<CreateScheduleBody>();
+    let body: CreateScheduleBody;
+    try {
+      body = await c.req.json<CreateScheduleBody>();
+    } catch {
+      return c.json({ error: 'Invalid JSON body' }, 400);
+    }
+
     const {
       recipient, recipientEmail, endpoint, messageType, from,
       cron, deliveryMethod, webhookUrl, webhookSecret,
     } = body;
+
+    if (!recipient || !recipientEmail || !endpoint || !cron) {
+      return c.json({ error: 'Missing required fields: recipient, recipientEmail, endpoint, cron' }, 400);
+    }
 
     // Validate cron expression
     const nextRun = scheduler.calculateNextRun(cron);

@@ -50,10 +50,10 @@ export function messageRoutes(messageService: MessageService): Hono {
     const name = c.req.param('name');
     const from = c.req.query('from');
 
-    const validTypes: MessageType[] = ['animal', 'absurd', 'meta', 'unexpected', 'toughLove'];
-    if (!validTypes.includes(type as MessageType)) {
+    const availableTypes = messageService.getAvailableTypes();
+    if (!availableTypes.includes(type as MessageType)) {
       return c.json(
-        { error: `Invalid message type. Available types: ${messageService.getAvailableTypes().join(', ')}` },
+        { error: `Invalid message type. Available types: ${availableTypes.join(', ')}` },
         400,
       );
     }

@@ -1,6 +1,6 @@
 import { Cron } from 'croner';
 import { Storage, Schedule } from '../storage/interface.js';
-import { MessageService } from '../services/messages.js';
+import { MessageService, MessageType } from '../services/messages.js';
 import { EmailDelivery } from '../delivery/email.js';
 import { WebhookDelivery } from '../delivery/webhook.js';
 
@@ -102,7 +102,7 @@ export class Scheduler {
       case 'message':
         if (messageType) {
           const msg = this.messageService.getMessageByType(
-            messageType as any,
+            messageType as MessageType,
             recipient,
             from
           );

@@ -14,7 +14,7 @@
     "dev:worker": "wrangler dev",
     "deploy:worker": "wrangler deploy",
     "deploy:worker:full": "npm run build:web && wrangler deploy",
-    "deploy:worker:ajaas": "npm run build:web && wrangler deploy --domain ajaas.io",
+    "deploy:worker:domain": "npm run build:web && wrangler deploy --domain your-domain.example.com",
     "generate-key": "tsx scripts/generate-key.ts",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -27,6 +27,9 @@ export interface Config {
   messages: {
     toughLove: boolean;
   };
+  cors: {
+    origin: string;
+  };
   rateLimit: {
     enabled: boolean;
     max: number;
@@ -106,6 +109,9 @@ export function loadConfig(envFilePath?: string): Config {
     },
     messages: {
       toughLove: getEnvBoolean('TOUGH_LOVE_ENABLED', true),
+    },
+    cors: {
+      origin: process.env.CORS_ORIGIN || '*',
     },
     rateLimit: {
       enabled: getEnvBoolean('RATE_LIMIT_ENABLED', false),

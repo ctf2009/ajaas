@@ -1,6 +1,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { cors } from 'hono/cors';
 import type { TokenService } from './auth/token.js';
 import type { Config } from './config.js';
 import { rateLimiter } from './middleware/ratelimit.js';
@@ -56,6 +57,9 @@ export function createApp(options: AppOptions): Hono {
   const { config, messageService, tokenService, storage, scheduler } = options;
   const app = new Hono();
 
+  app.use('/api/*', cors({ origin: config.cors.origin }));
+  app.use('/health', cors({ origin: config.cors.origin }));
+
   if (config.rateLimit.enabled) {
     app.use(
       '/api/*',
@@ -104,12 +108,7 @@ export function createApp(options: AppOptions): Hono {
     }),
   );
 
-  app.notFound((c) => {
-    if (c.req.path.startsWith('/api')) {
-      return c.json({ error: 'Not found' }, 404);
-    }
-    return c.json({ error: 'Not found' }, 404);
-  });
+  app.notFound((c) => c.json({ error: 'Not found' }, 404));
 
   return app;
 }

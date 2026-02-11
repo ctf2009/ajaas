@@ -194,11 +194,13 @@ describe('Message Routes', () => {
       expect(body.types).not.toContain('toughLove');
     });
 
-    it('should return 404 for toughLove type', async () => {
+    it('should return 400 for toughLove type', async () => {
       const response = await createApp(false).request(
         'http://localhost/api/message/toughLove/Rachel',
       );
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(400);
+      const body = await readJson<ErrorBody>(response);
+      expect(body.error).toContain('Invalid message type');
     });
   });
 });

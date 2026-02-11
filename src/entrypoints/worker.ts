@@ -27,10 +27,9 @@ function applyWorkerDefaults(): void {
 }
 
 function getApp(env: WorkerEnv) {
-  applyWorkerBindings(env);
-  applyWorkerDefaults();
-
   if (!app) {
+    applyWorkerBindings(env);
+    applyWorkerDefaults();
     const config = loadConfig();
     const messageService = new MessageService(config.messages.toughLove);
     app = createApp({ config, messageService });
@@ -41,6 +40,6 @@ function getApp(env: WorkerEnv) {
 
 export default {
   fetch(request: Request, env: WorkerEnv): Promise<Response> | Response {
-    return getApp(env).fetch(request, env as never);
+    return getApp(env).fetch(request);
   },
 };
