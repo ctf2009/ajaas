@@ -6,6 +6,7 @@ import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import fastifyStatic from '@fastify/static';
 import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyCors from '@fastify/cors';
 import { loadConfig } from './config.js';
 import { messageRoutes } from './routes/messages.js';
 import { scheduleRoutes } from './routes/schedule.js';
@@ -55,6 +56,12 @@ if (config.endpoints.schedule.enabled && storage) {
 
 const fastify = Fastify({
   logger: true,
+});
+
+// CORS
+await fastify.register(fastifyCors, {
+  origin: config.cors.origin === '*' ? true : config.cors.origin.split(',').map(o => o.trim()),
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
 });
 
 // OpenAPI setup

@@ -76,7 +76,8 @@ section h2 {
   background: var(--bg);
   color: var(--text);
   font-size: 1rem;
-  min-width: 180px;
+  min-width: 0;
+  width: 100%;
 }
 
 .form-row input:focus,
@@ -212,8 +213,30 @@ footer {
     padding: 1rem;
   }
 
+  header {
+    margin-bottom: 2rem;
+    padding: 1rem 0;
+  }
+
   header h1 {
     font-size: 2.5rem;
+  }
+
+  .tagline {
+    font-size: 1.1rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  section {
+    padding: 1.25rem;
+  }
+
+  section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
   }
 
   .form-row {
@@ -222,11 +245,20 @@ footer {
 
   .form-row button {
     width: 100%;
+    padding: 0.875rem 1.5rem;
   }
 
   .endpoint-grid,
   .code-tabs {
     grid-template-columns: 1fr;
+  }
+
+  pre {
+    font-size: 0.8rem;
+  }
+
+  .result p {
+    font-size: 1rem;
   }
 }
 

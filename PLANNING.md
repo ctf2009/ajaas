@@ -213,42 +213,47 @@ This requires adding client-side routing to the React SPA.
 - Consider adding a "Get another message" button that re-fetches
 - The card URL can be shared via any messaging platform (Slack, email, WhatsApp, etc.)
 
+**Card UI Design:**
+
+The card view should be a full-viewport, centered layout with a single visual "card" element. Key design details:
+
+- **Layout:** Vertically and horizontally centered on the viewport (`min-height: 100vh`, flexbox centering). No scrolling needed — the card is the entire experience.
+- **Card container:** Rounded corners (16px), subtle border using `var(--border)`, background `var(--bg-card)`, generous padding (2.5rem–3rem). Max-width ~560px so it doesn't stretch too wide on desktop. Slight box shadow for depth.
+- **Message text:** Large, readable font (1.5rem–1.75rem), `var(--text)` color, centered. Use `font-style: italic` for the quote feel. Line-height ~1.6 for readability.
+- **Recipient name:** Displayed above or below the message as a heading — e.g., "Hey Rachel," in the gradient style matching the landing page h1 (blue→purple gradient text). Font size ~1.25rem.
+- **Attribution:** If `?from=Name` is provided, show "— from {Name}" below the message in `var(--text-muted)`, right-aligned. Smaller font (0.9rem).
+- **Actions:** Below the card, two subtle links/buttons:
+  - "Get another message" — re-fetches the API for a fresh message (same type/name)
+  - "Send your own" — links back to the landing page (`/`)
+  - Style as text links or ghost buttons, not primary buttons — keep the card the focus
+- **Branding:** Small "Powered by AJaaS" text below the card, muted color, links to `/`. Keep it unobtrusive.
+- **Mobile:** Card should be nearly full-width with less padding (1.25rem). Message font can drop to 1.25rem. The centered layout works naturally on mobile.
+- **Animation (optional):** Subtle fade-in on load (CSS `@keyframes fadeIn` with `opacity 0→1` over 0.4s). No heavy animations — the simplicity is the charm.
+- **Background:** Use the same dark background (`var(--bg)`) as the main app. The card sits on top as the focal point.
+- **Message type theming (future):** Consider subtle color accents per message type (e.g., green for animal, orange for absurd) via a thin top-border or accent line on the card. Not required for v1.
+
 ---
 
 ## General Refactor
 
 ### CORS
 
-There is **no CORS handling** in the codebase. The landing page works because it's same-origin (`/api/*` served alongside the SPA), but any external consumer calling the API from a different domain will be blocked by the browser.
+**Status: Implemented**
 
-**Current state:**
-- No `@fastify/cors` registered
-- No `Access-Control-*` headers set anywhere in `src/`
-- External API consumers (e.g., someone embedding AJaaS messages in their own site) cannot call the API from the browser
+CORS is now configured via `@fastify/cors` with a `CORS_ORIGIN` environment variable.
 
-**Implementation:**
+**What was done:**
+- [x] Added `@fastify/cors` dependency
+- [x] Registered in `src/index.ts` with configurable origin
+- [x] Added `CORS_ORIGIN` env var to `src/config.ts` (default: `*` for open API)
+- [x] Documented `CORS_ORIGIN` in `.env.example`
 
-For Fastify (current):
-- [ ] Add `@fastify/cors` dependency
-- [ ] Register in `src/index.ts` with configurable origin
-- [ ] Add `CORS_ORIGIN` env var to `src/config.ts` (default: `*` for open API, or restrict to specific domains)
+**Configuration:**
+- `CORS_ORIGIN=*` (default) — allows all origins (open public API)
+- `CORS_ORIGIN=https://example.com` — restrict to a single domain
+- `CORS_ORIGIN=https://example.com,https://app.example.com` — comma-separated list for multiple domains
 
-For Hono (post-migration):
-- Hono has built-in CORS middleware via `hono/cors`
-- Same config approach — this carries forward naturally
-
-**Configuration options:**
-```yaml
-cors:
-  origin: '*'              # Allow all origins (open public API)
-  # origin: 'https://example.com'  # Restrict to specific domain
-```
-
-**Considerations:**
-- AJaaS is designed as a public API — defaulting to `origin: '*'` makes sense for message endpoints
-- Schedule and admin endpoints are already auth-gated, so CORS `*` is safe (tokens are required)
-- `credentials: true` should NOT be set with `origin: '*'` (browser security restriction)
-- Preflight `OPTIONS` requests need to be handled (the CORS plugins handle this automatically)
+**Hono migration note:** Hono has built-in CORS middleware via `hono/cors`. The `CORS_ORIGIN` config carries forward naturally.
 
 ### Code Quality
 
