@@ -61,18 +61,22 @@ if (config.web.enabled) {
       path: 'index.html',
     });
 
+    const isStaticAssetPath = (path: string): boolean => /\.[^/]+$/.test(path);
+
     const serveWeb = async (c: Context, next: () => Promise<void>) => {
       if (c.req.path.startsWith('/api') || c.req.path === '/health') {
         return next();
       }
 
-      return staticAssets(c, async () => {
-        if (c.req.method === 'GET' || c.req.method === 'HEAD') {
-          await staticIndex(c, async () => {});
-          return;
-        }
-        await next();
-      });
+      if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+        return next();
+      }
+
+      if (isStaticAssetPath(c.req.path)) {
+        return staticAssets(c, next);
+      }
+
+      return staticIndex(c, async () => {});
     };
 
     app.on(['GET', 'HEAD'], '/', serveWeb);
