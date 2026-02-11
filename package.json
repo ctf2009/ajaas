@@ -1,6 +1,6 @@
 {
   "name": "ajaas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Awesome Job As A Service - wholesome compliments API",
   "type": "module",
   "main": "dist/index.js",

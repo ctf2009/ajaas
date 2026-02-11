@@ -63,7 +63,7 @@ await fastify.register(fastifySwagger, {
     info: {
       title: 'AJaaS - Awesome Job As A Service',
       description: 'A wholesome API that generates personalized compliment messages.',
-      version: '0.1.0', // x-release-please-version
+      version: '0.1.1', // x-release-please-version
     },
     servers: [
       {
