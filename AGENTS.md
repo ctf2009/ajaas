@@ -36,7 +36,7 @@ AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized 
 
 ## File Locations
 
-- API code: `src/api/`
+- API code: `src/`
 - React landing page: `src/web/`
 - CLI scripts: `scripts/`
 - Planning doc: `PLANNING.md`
@@ -50,7 +50,7 @@ AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized 
 
 ### Adding a new message endpoint
 
-1. Create route in `src/api/routes/`
+1. Create route in `src/routes/`
 2. Define schema for OpenAPI
 3. Add message templates to the appropriate service
 
@@ -61,9 +61,9 @@ AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized 
 
 ### Modifying storage
 
-1. Update the storage interface if adding new capabilities
-2. Implement changes in the SQLite adapter
-3. Storage abstraction exists to allow future DynamoDB support (not currently implemented)
+1. Update the storage interface in `src/storage/interface.ts` if adding new capabilities
+2. Implement changes in the SQLite and/or PostgreSQL adapters
+3. Storage abstraction supports SQLite (default) and PostgreSQL backends
 
 ## Git & CI/CD
 
