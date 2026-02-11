@@ -26,7 +26,7 @@ The planning items below are largely independent, but some have natural ordering
    └── Fastify replaced with Hono everywhere
 
 5. CF Workers Migration Phase 2: Workers Entry Point ← PARTIAL
-   └── Basic Worker entry point done, deployed to ajaas.io
+   └── Basic Worker entry point done, deployed to `workers.dev` and custom domain
    └── Durable Objects, email-api, RPC client still pending
 
 6. CF Workers Migration Phase 3: Testing & Polish
@@ -110,21 +110,23 @@ Start with an admin revocation endpoint only. Token inventory (persisting token 
 
 ## Web UI Enhancements
 
-The React SPA (`src/web/`) currently has: a try-it demo form, endpoint listing, code examples, the origin story, and footer links. Three enhancements are planned.
+The React SPA (`src/web/`) currently has: a try-it demo form, endpoint listing, code examples, the origin story, and footer links.
 
 ### Current Web UI Structure
 
 **Files:**
-- `src/web/src/App.tsx` — single-component SPA (all sections in one file)
-- `src/web/src/App.css` — styles
-- `src/web/src/main.tsx` — React entry point
-- `src/web/vite.config.ts` — Vite build config
+- `src/web/src/App.tsx` - landing page and try-it flow
+- `src/web/src/App.css` - landing page styles
+- `src/web/src/main.tsx` - React entry point with router
+- `src/web/src/CardView.tsx` - shareable card route view
+- `src/web/src/CardView.css` - card route styles
+- `src/web/vite.config.ts` - Vite build config
 
-The app is a single `App` component with no routing (no `react-router`). All content is rendered in one scrollable page.
+The app uses `react-router-dom` with routes for `/` and `/card/:type/:name`.
 
 ### 3a. Features List
 
-Add a "Features" section to the landing page highlighting what AJaaS offers. This is static content — no API calls needed.
+Add a "Features" section to the landing page highlighting what AJaaS offers. This is static content - no API calls needed.
 
 **Suggested features to showcase:**
 - Multiple message types (wholesome, animal, absurd, meta, unexpected, tough love)
@@ -134,12 +136,12 @@ Add a "Features" section to the landing page highlighting what AJaaS offers. Thi
 - Encrypted token authentication (AES-256-GCM)
 - OpenAPI documentation with Swagger UI
 - Rate limiting
-- Configurable — features can be toggled on/off
+- Configurable - features can be toggled on/off
 
 **Implementation:**
 - [ ] Add a `<section className="features">` block to `src/web/src/App.tsx`
 - [ ] Style with a card grid layout (similar to existing endpoint grid)
-- [ ] Place between the story and try-it sections (or after try-it — use judgement)
+- [ ] Place between the story and try-it sections (or after try-it - use judgement)
 
 ### 3b. Dynamic Feature Discovery
 
@@ -166,9 +168,9 @@ The frontend should know which server features are enabled so it can conditional
 - [ ] Handle fetch failure gracefully (show all features as a fallback)
 
 **Considerations:**
-- The health endpoint is unauthenticated and lightweight — fine to call on every page load
-- Cache the response in session state to avoid re-fetching on SPA navigation (not currently relevant since there's no routing, but good practice)
-- On CF Workers, the health endpoint is handled by the Worker, not the CDN — this works fine
+- The health endpoint is unauthenticated and lightweight - fine to call on every page load
+- Cache the response in session state to avoid re-fetching on SPA navigation (now relevant with card routing)
+- On CF Workers, the health endpoint is handled by the Worker, not the CDN - this works fine
 
 ### 3c. Shareable Message Cards
 
@@ -181,35 +183,28 @@ Examples:
 - `https://ajaas.example.com/card/weekly/Mike?from=Boss`
 - `https://ajaas.example.com/card/random/Alex`
 
-**User flow:**
-1. User creates a link (either manually or via a "Share" button in the try-it demo)
-2. Recipient clicks the link
-3. The SPA renders a full-screen visual card with the generated message
-4. Each visit generates a fresh message (different on refresh)
-
-**Implementation:**
-
-This requires adding client-side routing to the React SPA.
-
-- [ ] Add `react-router-dom` to `src/web/`
-- [ ] Create a `CardView` component (`src/web/src/CardView.tsx`)
+**Implementation Status (Complete):**
+- [x] Add `react-router-dom` to `src/web/`
+- [x] Create a `CardView` component (`src/web/src/CardView.tsx`)
   - Extracts `:type` and `:name` from URL params, `from` from query string
   - Calls the appropriate API endpoint on mount (e.g., `GET /api/awesome/:name?from=...`)
   - Renders the message as a styled card (large text, centered, branded)
   - Includes a subtle "Powered by AJaaS" footer link back to the main page
-- [ ] Update `src/web/src/App.tsx` to use `<BrowserRouter>` with routes:
-  - `/` → existing landing page
-  - `/card/:type/:name` → `CardView` component
-- [ ] Add a "Share" button to the try-it demo that generates the card URL
-- [ ] Style the card view — full viewport, centered message, clean typography
-- [ ] SPA fallback already works (non-API routes serve `index.html` via `@hono/node-server/serve-static`, and `not_found_handling: "single-page-application"` on CF Workers)
+- [x] Update `src/web/src/main.tsx` to use `<BrowserRouter>` with routes:
+  - `/` -> existing landing page
+  - `/card/:type/:name` -> `CardView` component
+- [x] Add card sharing actions in the try-it demo (`View as card`, `Copy share link`)
+- [x] Style the card view - full viewport, centered message, clean typography
+- [x] SPA fallback works on both runtimes:
+  - Node entrypoint serves `index.html` fallback for non-asset, non-API routes
+  - CF Workers assets use `not_found_handling: "single-page-application"`
+- [x] Mobile alignment fixes for try-it controls and result actions
 
 **Design notes:**
 - The card should feel like receiving a personal message, not like visiting an API docs page
-- Keep it simple — the message itself is the star
+- Keep it simple - the message itself is the star
 - Consider adding a "Get another message" button that re-fetches
 - The card URL can be shared via any messaging platform (Slack, email, WhatsApp, etc.)
-
 ---
 
 ## General Refactor
@@ -279,7 +274,18 @@ Initial Cloudflare deployment from local machine was completed successfully for 
 - Live checks succeeded:
   - `https://ajaas.io/health` returned `200`
   - `https://ajaas.io/` returned `200` (`text/html`)
-  - `https://ajaas.io/api/types` returned valid JSON
+  - `https://ajaas.io/api/types` returned valid JSON`r`n`r`n### Deployment Log (2026-02-11, follow-up)
+
+Subsequent deployments from `feat/ui-cards-only-main` were completed successfully to the default workers.dev route after UI/card updates.
+
+**What was run**
+- `npm run deploy:worker:full`
+
+**Observed result**
+- Worker deployed successfully (`ajaas`)
+- Latest verified URL: `https://ajaas.chrisflaherty.workers.dev`
+- Card route served via SPA fallback:
+  - `https://ajaas.chrisflaherty.workers.dev/card/awesome/Rachel`
 
 ### Lessons Learned
 
@@ -718,3 +724,4 @@ With `nodejs_compat` and compat date >= `2025-04-01`, the `nodejs_compat_populat
 - AI-generated messages
 - OAuth client credentials flow
 - Distributed scheduling (multi-process support for Docker path)
+
