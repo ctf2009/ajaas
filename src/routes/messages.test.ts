@@ -15,7 +15,6 @@ describe('Message Routes', () => {
       endpoints: { schedule: { enabled: false } },
       security: { enabled: false, encryptionKey: '' },
       messages: { toughLove },
-      cors: { origin: '*' },
       rateLimit: { enabled: false, max: 100, timeWindow: '1 minute' },
       database: { path: ':memory:', dataEncryptionKey: '' },
       smtp: { host: '', port: 587, secure: false, user: '', pass: '', from: 'ajaas@example.com' },

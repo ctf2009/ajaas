@@ -238,22 +238,36 @@ The card view should be a full-viewport, centered layout with a single visual "c
 
 ### CORS
 
-**Status: Implemented**
+There is **no CORS handling** in the codebase. The landing page works because it's same-origin (`/api/*` served alongside the SPA), but any external consumer calling the API from a different domain will be blocked by the browser.
 
-CORS is now configured via `@fastify/cors` with a `CORS_ORIGIN` environment variable.
+**Current state:**
+- No `@fastify/cors` registered
+- No `Access-Control-*` headers set anywhere in `src/`
+- External API consumers (e.g., someone embedding AJaaS messages in their own site) cannot call the API from the browser
 
-**What was done:**
-- [x] Added `@fastify/cors` dependency
-- [x] Registered in `src/index.ts` with configurable origin
-- [x] Added `CORS_ORIGIN` env var to `src/config.ts` (default: `*` for open API)
-- [x] Documented `CORS_ORIGIN` in `.env.example`
+**Implementation:**
 
-**Configuration:**
-- `CORS_ORIGIN=*` (default) — allows all origins (open public API)
-- `CORS_ORIGIN=https://example.com` — restrict to a single domain
-- `CORS_ORIGIN=https://example.com,https://app.example.com` — comma-separated list for multiple domains
+For Fastify (current):
+- [ ] Add `@fastify/cors` dependency
+- [ ] Register in `src/index.ts` with configurable origin
+- [ ] Add `CORS_ORIGIN` env var to `src/config.ts` (default: `*` for open API, or restrict to specific domains)
 
-**Hono migration note:** Hono has built-in CORS middleware via `hono/cors`. The `CORS_ORIGIN` config carries forward naturally.
+For Hono (post-migration):
+- Hono has built-in CORS middleware via `hono/cors`
+- Same config approach — this carries forward naturally
+
+**Configuration options:**
+```yaml
+cors:
+  origin: '*'              # Allow all origins (open public API)
+  # origin: 'https://example.com'  # Restrict to specific domain
+```
+
+**Considerations:**
+- AJaaS is designed as a public API — defaulting to `origin: '*'` makes sense for message endpoints
+- Schedule and admin endpoints are already auth-gated, so CORS `*` is safe (tokens are required)
+- `credentials: true` should NOT be set with `origin: '*'` (browser security restriction)
+- Preflight `OPTIONS` requests need to be handled (the CORS plugins handle this automatically)
 
 ### Code Quality
 
