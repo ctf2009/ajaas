@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import './App.css';
 
 type MessageType = 'awesome' | 'weekly' | 'random' | 'animal' | 'absurd' | 'meta' | 'unexpected';
@@ -9,6 +10,7 @@ function App() {
   const [messageType, setMessageType] = useState<MessageType>('awesome');
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const apiBase = '/api';
 
@@ -36,6 +38,22 @@ function App() {
       setResult('Oops! Something went wrong. The API might not be running.');
     }
     setLoading(false);
+  };
+
+  const getCardUrl = () => {
+    const cardName = encodeURIComponent(name || 'Rachel');
+    const base = `${window.location.origin}/card/${messageType}/${cardName}`;
+    return from ? `${base}?from=${encodeURIComponent(from)}` : base;
+  };
+
+  const copyCardLink = async () => {
+    try {
+      await navigator.clipboard.writeText(getCardUrl());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback: select text
+    }
   };
 
   const curlExample = () => {
@@ -126,6 +144,14 @@ function App() {
         {result && (
           <div className="result">
             <p>{result}</p>
+            <div className="result-actions">
+              <Link to={`/card/${messageType}/${encodeURIComponent(name || 'Rachel')}${from ? `?from=${encodeURIComponent(from)}` : ''}`} className="share-link">
+                View as card
+              </Link>
+              <button className="copy-link" onClick={copyCardLink}>
+                {copied ? 'Copied!' : 'Copy share link'}
+              </button>
+            </div>
           </div>
         )}
       </section>
