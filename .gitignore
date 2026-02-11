@@ -10,3 +10,4 @@ coverage
 *.db
 *.sqlite
 .wrangler
+.claude/
