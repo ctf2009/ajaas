@@ -217,6 +217,39 @@ This requires adding client-side routing to the React SPA.
 
 ## General Refactor
 
+### CORS
+
+There is **no CORS handling** in the codebase. The landing page works because it's same-origin (`/api/*` served alongside the SPA), but any external consumer calling the API from a different domain will be blocked by the browser.
+
+**Current state:**
+- No `@fastify/cors` registered
+- No `Access-Control-*` headers set anywhere in `src/`
+- External API consumers (e.g., someone embedding AJaaS messages in their own site) cannot call the API from the browser
+
+**Implementation:**
+
+For Fastify (current):
+- [ ] Add `@fastify/cors` dependency
+- [ ] Register in `src/index.ts` with configurable origin
+- [ ] Add `CORS_ORIGIN` env var to `src/config.ts` (default: `*` for open API, or restrict to specific domains)
+
+For Hono (post-migration):
+- Hono has built-in CORS middleware via `hono/cors`
+- Same config approach — this carries forward naturally
+
+**Configuration options:**
+```yaml
+cors:
+  origin: '*'              # Allow all origins (open public API)
+  # origin: 'https://example.com'  # Restrict to specific domain
+```
+
+**Considerations:**
+- AJaaS is designed as a public API — defaulting to `origin: '*'` makes sense for message endpoints
+- Schedule and admin endpoints are already auth-gated, so CORS `*` is safe (tokens are required)
+- `credentials: true` should NOT be set with `origin: '*'` (browser security restriction)
+- Preflight `OPTIONS` requests need to be handled (the CORS plugins handle this automatically)
+
 ### Code Quality
 
 - [ ] **Error handling consistency** — `src/routes/messages.ts` and `src/routes/schedule.ts` may handle errors differently (some return JSON error objects, some throw). Standardise on a consistent pattern.
@@ -309,6 +342,7 @@ Fastify cannot run on Workers (relies on Node.js HTTP server primitives). Replac
 |---------------|-----------------|
 | `@fastify/swagger` | `@hono/zod-openapi` |
 | `@fastify/swagger-ui` | `@hono/swagger-ui` |
+| `@fastify/cors` | `hono/cors` (built-in middleware) |
 | `@fastify/rate-limit` | `hono/rate-limiter` or custom middleware |
 | `@fastify/static` | `@hono/node-server/serve-static` (Node) / Workers Assets (CF) |
 | Fastify `preHandler` | Hono middleware |
