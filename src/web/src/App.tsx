@@ -17,9 +17,9 @@ function App() {
       case 'awesome':
       case 'weekly':
       case 'random':
-        return `${apiBase}/${messageType}/${encodeURIComponent(name || 'You')}`;
+        return `${apiBase}/${messageType}/${encodeURIComponent(name || 'Rachel')}`;
       default:
-        return `${apiBase}/message/${messageType}/${encodeURIComponent(name || 'You')}`;
+        return `${apiBase}/message/${messageType}/${encodeURIComponent(name || 'Rachel')}`;
     }
   };
 
@@ -56,12 +56,27 @@ function App() {
     <div className="container">
       <header>
         <h1>AJaaS</h1>
-        <p className="tagline">Awesome Job As A Service</p>
+        <p className="tagline">Awesome Job as a Service</p>
         <p className="subtitle">
           A wholesome API for telling people they're doing great.<br />
           Because everyone deserves to hear it.
         </p>
       </header>
+
+      <section className="about">
+        <h2>The Story</h2>
+        <p>
+          Every Friday, as I leave the office, I have a little ritual. I walk past my colleagues
+          and tell them: <em>"Awesome job this week. Take the next 2 days off."</em>
+        </p>
+        <p>
+          It's a bit of fun. People look forward to it. Sometimes I personalize it,
+          sometimes I get creative. It lifts morale and ends the week on a high note.
+        </p>
+        <p>
+          AJaaS is that ritual, as an API. Because everyone deserves to hear they're doing awesome.
+        </p>
+      </section>
 
       <section className="demo">
         <h2>Try It</h2>
@@ -160,21 +175,6 @@ function App() {
             <pre><code>{jsExample()}</code></pre>
           </div>
         </div>
-      </section>
-
-      <section className="about">
-        <h2>The Story</h2>
-        <p>
-          Every Friday, as I leave the office, I have a little ritual. I walk past my colleagues
-          and tell them: <em>"Awesome job this week. Take the next 2 days off."</em>
-        </p>
-        <p>
-          It's a bit of fun. People look forward to it. Sometimes I personalize it,
-          sometimes I get creative. It lifts morale and ends the week on a high note.
-        </p>
-        <p>
-          AJaaS is that ritual, as an API. Because everyone deserves to hear they're doing awesome.
-        </p>
       </section>
 
       <footer>
