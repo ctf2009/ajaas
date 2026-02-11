@@ -20,9 +20,9 @@ The planning items below are largely independent, but some have natural ordering
    └── No dependency on Hono migration — works with current Fastify routes
    └── Storage interface changes carry forward to CF Workers path
 
-3. GA4 Analytics Integration (can start now)
-   └── No dependency on Hono migration — add to React SPA + current Fastify API
-   └── If using config endpoint: endpoint carries forward to Hono
+3. Web UI Enhancements (can start now)
+   └── No dependency on Hono migration — React SPA + current Fastify API
+   └── Feature discovery uses existing /health endpoint
 
 4. CF Workers Migration Phase 1: Hono Migration
    └── Should come AFTER items 1-3 are stable (less churn during migration)
@@ -74,105 +74,144 @@ CREATE TABLE revoked_tokens (
 | `src/routes/schedule.ts` | Only schedule routes exist | New admin route file needed |
 | `scripts/generate-key.ts` | CLI token generation | Optionally store token metadata |
 
-### Areas to Address
+### Scope: Minimal First
 
-1. **Admin Revocation API**
-   - Add new route file `src/routes/admin.ts` with `POST /api/admin/revoke` endpoint
-   - Requires a new `admin` role (or reuse `schedule` role with admin capability)
-   - Consider: should revoking require the full token or just the `jti`?
-   - The `Role` type in `src/auth/token.ts` currently only supports `'read' | 'schedule'`
-   - Role hierarchy would become: `admin` > `schedule` > `read`
+Start with an admin revocation endpoint only. Token inventory (persisting token metadata on generation, listing, bulk revocation) is deferred — can be added later if needed.
 
-2. **Revocation Cleanup**
-   - Revoked tokens whose original `exp` has passed no longer need to be stored
-   - **Problem:** the `revoked_tokens` table does not store `exp` — only `jti` and `revokedAt`
-   - **Solution options:**
-     - (a) Add `exp` column to `revoked_tokens` — populate at revocation time (requires knowing the token's exp)
-     - (b) Use a fixed TTL: delete revocations older than N days (e.g., `revokedAt < now - 90d`)
-     - (c) If token inventory exists (see item 4), cross-reference `exp` from the `tokens` table
-   - On the Node.js path, cleanup can run as part of the scheduler polling loop (`src/scheduler/index.ts`)
-   - On the CF Workers path, a DO alarm or scheduled Worker can handle cleanup
+### Implementation Plan
 
-3. **Bulk Revocation**
-   - Ability to revoke all tokens for a given `sub` (e.g., when a user leaves)
-   - **Problem:** `revoked_tokens` has no `sub` column — you'd need to know every `jti` for that subject
-   - **Solution options:**
-     - (a) Add `sub` column to `revoked_tokens` and support `POST /api/admin/revoke-all?sub=user@company.com`
-     - (b) If token inventory exists (see item 4), query all JTIs for a `sub` from the `tokens` table and revoke each
-   - Scanning and decrypting all live tokens is impractical (tokens are stateless, not stored)
+1. **Add `admin` role to role hierarchy**
+   - Update `Role` type in `src/auth/token.ts`: `'read' | 'schedule' | 'admin'`
+   - Update `hasRole()` so `admin` > `schedule` > `read`
+   - Update `scripts/generate-key.ts` to accept `--role admin`
 
-4. **Token Inventory / Listing**
-   - Currently no way to see what tokens exist — they are encrypted, stateless, and not persisted
-   - Consider: should `scripts/generate-key.ts` (and any future admin API) also store token metadata in a `tokens` table?
-   - Proposed schema:
-     ```sql
-     CREATE TABLE tokens (
-       jti TEXT PRIMARY KEY,
-       sub TEXT NOT NULL,
-       name TEXT NOT NULL,
-       role TEXT NOT NULL,
-       exp INTEGER NOT NULL,
-       created_at INTEGER NOT NULL
-     );
-     CREATE INDEX idx_tokens_sub ON tokens(sub);
-     ```
-   - This would enable: listing active tokens, revoking by selection, audit trails, bulk revocation by `sub`, and expiry-based cleanup
-   - Trade-off: adds state to a currently stateless token model
-   - The `Storage` interface would need new methods: `storeTokenMetadata()`, `listTokens(sub?)`, `getTokenMetadata(jti)`
+2. **Add admin revocation endpoint**
+   - Create `src/routes/admin.ts` with `POST /api/admin/revoke`
+   - Request body: `{ "jti": "token-id-to-revoke" }` (revoke by JTI)
+   - Requires `admin` role authentication
+   - Calls `storage.revokeToken(jti)` (method already exists)
+   - Returns `{ "revoked": true, "jti": "..." }`
+
+3. **Register admin routes in app**
+   - Register in `src/index.ts` alongside schedule routes
+   - Admin routes always require auth (same pattern as schedule routes)
+
+4. **Add revocation cleanup with fixed TTL**
+   - Since `revoked_tokens` does not store the token's `exp`, use a fixed TTL approach
+   - Add `cleanupExpiredRevocations(maxAgeDays: number)` to the `Storage` interface
+   - Implementation: `DELETE FROM revoked_tokens WHERE revoked_at < ?` (current time - maxAgeDays)
+   - Run during scheduler polling loop (`src/scheduler/index.ts`) — e.g., once per hour
+   - Default TTL: 90 days (configurable)
+
+### Future Enhancements (deferred)
+
+- Token inventory table (persist metadata on generation, enable listing/searching)
+- Bulk revocation by `sub` (requires token inventory or `sub` column on `revoked_tokens`)
+- Admin API for listing active tokens
 
 ---
 
-## GA4 Analytics Integration
+## Web UI Enhancements
 
-Google Analytics 4 (GA4) tracking is **not yet implemented** in the web app. `VITE_GA_MEASUREMENT_ID` is documented as an environment variable in the README but the React code (`src/web/src/App.tsx`, `src/web/src/main.tsx`) does not reference it or include any analytics code.
+The React SPA (`src/web/`) currently has: a try-it demo form, endpoint listing, code examples, the origin story, and footer links. Three enhancements are planned.
 
-This is a two-part task: first add GA4 tracking, then decide whether the measurement ID should be build-time or runtime.
+### Current Web UI Structure
 
-### Part 1: Add GA4 Tracking
+**Files:**
+- `src/web/src/App.tsx` — single-component SPA (all sections in one file)
+- `src/web/src/App.css` — styles
+- `src/web/src/main.tsx` — React entry point
+- `src/web/vite.config.ts` — Vite build config
 
-**Files to create/modify:**
-- `src/web/src/analytics.ts` — GA4 initialization and event helpers
-- `src/web/src/main.tsx` or `src/web/src/App.tsx` — call initialization on mount
-- `src/web/index.html` — add gtag.js script tag (or load dynamically)
+The app is a single `App` component with no routing (no `react-router`). All content is rendered in one scrollable page.
 
-**Standard GA4 integration pattern:**
-```html
-<!-- In index.html -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'GA_MEASUREMENT_ID');
-</script>
+### 3a. Features List
+
+Add a "Features" section to the landing page highlighting what AJaaS offers. This is static content — no API calls needed.
+
+**Suggested features to showcase:**
+- Multiple message types (wholesome, animal, absurd, meta, unexpected, tough love)
+- Content negotiation (JSON or plain text responses)
+- Scheduled messages with cron expressions
+- Email and webhook delivery
+- Encrypted token authentication (AES-256-GCM)
+- OpenAPI documentation with Swagger UI
+- Rate limiting
+- Configurable — features can be toggled on/off
+
+**Implementation:**
+- [ ] Add a `<section className="features">` block to `src/web/src/App.tsx`
+- [ ] Style with a card grid layout (similar to existing endpoint grid)
+- [ ] Place between the story and try-it sections (or after try-it — use judgement)
+
+### 3b. Dynamic Feature Discovery
+
+The frontend should know which server features are enabled so it can conditionally show or hide UI elements (e.g., don't show scheduling info if scheduling is disabled).
+
+**Current state:** The `/health` endpoint already returns everything needed:
+
+```json
+{
+  "status": "ok",
+  "scheduling": true,
+  "security": true,
+  "web": true,
+  "rateLimit": false
+}
 ```
 
-### Part 2: Build-Time vs Runtime Measurement ID
+**Implementation:**
+- [ ] Fetch `/health` on app mount in `src/web/src/App.tsx` (or a context provider)
+- [ ] Store the response in React state
+- [ ] Conditionally render scheduling-related content based on `scheduling` flag
+- [ ] Conditionally show security info based on `security` flag
+- [ ] Show rate limiting status if enabled
+- [ ] Handle fetch failure gracefully (show all features as a fallback)
 
-**Option A: Build-time (simplest)**
-- Use `VITE_GA_MEASUREMENT_ID` env var, Vite replaces at build time
-- Docker users must rebuild to change the ID
-- Pros: zero runtime overhead, GA initialises immediately
-- Cons: requires rebuild to change tracking ID
+**Considerations:**
+- The health endpoint is unauthenticated and lightweight — fine to call on every page load
+- Cache the response in session state to avoid re-fetching on SPA navigation (not currently relevant since there's no routing, but good practice)
+- On CF Workers, the health endpoint is handled by the Worker, not the CDN — this works fine
 
-**Option B: Runtime via config endpoint**
-- Add `GET /api/config` returning `{ gaMeasurementId: "G-XXX" }` (non-sensitive)
-- React app fetches on mount, then initialises GA4 dynamically
-- Pros: fully runtime, works on all platforms (including CF Workers where assets are CDN-served)
-- Cons: extra HTTP request on page load, brief delay before GA initialises
+### 3c. Shareable Message Cards
 
-**Option C: Runtime via HTML template injection**
-- Server replaces `__GA_MEASUREMENT_ID__` in `index.html` before serving
-- Pros: no extra request
-- Cons: requires server-side HTML processing; doesn't work with CF Workers Assets (static CDN)
+Generate a link that opens a visual "card" with a personalized message for a specific person. The message is generated fresh each time the link is opened (different message on refresh).
 
-**Recommendation:** Start with Option A (build-time) — it's the simplest and matches how Vite apps typically handle this. If runtime configuration becomes important (e.g., same Docker image for multiple environments), add a config endpoint later. The config endpoint approach is also the most portable for the CF Workers path.
+**URL format:** `/card/:type/:name?from=Someone`
 
-### Decision
+Examples:
+- `https://ajaas.example.com/card/awesome/Rachel`
+- `https://ajaas.example.com/card/weekly/Mike?from=Boss`
+- `https://ajaas.example.com/card/random/Alex`
 
-- [ ] Confirm whether to implement GA4 at all (or defer to parking lot)
-- [ ] If implementing: build-time (Option A) or runtime (Option B)?
-- [ ] Should the config endpoint return other client-side config beyond GA4?
+**User flow:**
+1. User creates a link (either manually or via a "Share" button in the try-it demo)
+2. Recipient clicks the link
+3. The SPA renders a full-screen visual card with the generated message
+4. Each visit generates a fresh message (different on refresh)
+
+**Implementation:**
+
+This requires adding client-side routing to the React SPA.
+
+- [ ] Add `react-router-dom` to `src/web/`
+- [ ] Create a `CardView` component (`src/web/src/CardView.tsx`)
+  - Extracts `:type` and `:name` from URL params, `from` from query string
+  - Calls the appropriate API endpoint on mount (e.g., `GET /api/awesome/:name?from=...`)
+  - Renders the message as a styled card (large text, centered, branded)
+  - Includes a subtle "Powered by AJaaS" footer link back to the main page
+- [ ] Update `src/web/src/App.tsx` to use `<BrowserRouter>` with routes:
+  - `/` → existing landing page
+  - `/card/:type/:name` → `CardView` component
+- [ ] Add a "Share" button to the try-it demo that generates the card URL
+- [ ] Style the card view — full viewport, centered message, clean typography
+- [ ] SPA fallback already works (non-API routes serve `index.html` via Fastify static, and `not_found_handling: "single-page-application"` on CF Workers)
+
+**Design notes:**
+- The card should feel like receiving a personal message, not like visiting an API docs page
+- Keep it simple — the message itself is the star
+- Consider adding a "Get another message" button that re-fetches
+- The card URL can be shared via any messaging platform (Slack, email, WhatsApp, etc.)
 
 ---
 
@@ -432,19 +471,14 @@ Uses `@cloudflare/vite-plugin` for a unified build — single `vite build` produ
 - [ ] Deployment documentation in README
 - [ ] Health check verification on both paths
 
-### Key Decisions
-
-| Decision | Options | Status |
-|----------|---------|--------|
-| Hono migration strategy | **Replace Fastify everywhere (recommended)** vs wrapper pattern | Needs confirmation |
-| DO topology | **Singleton ScheduleManager (recommended)** vs per-schedule DO | Needs confirmation |
-| Email provider for CF | Resend (stable) vs MailChannels (free tier) vs CF Email Service (beta) | Needs selection |
-| OpenAPI approach | **`@hono/zod-openapi` (recommended)** vs manual spec | Needs confirmation |
-
-### Decisions Already Resolved
+### Decisions Resolved
 
 | Decision | Resolution |
 |----------|-----------|
+| Hono migration strategy | Replace Fastify with Hono everywhere |
+| DO topology | Singleton ScheduleManager DO |
+| Email provider for CF | Resend (stable, available now) |
+| OpenAPI approach | `@hono/zod-openapi` (replaces `@fastify/swagger` + validation) |
 | Encryption approach | `nodejs_compat` — keep `node:crypto`, no Web Crypto migration |
 | Async Storage interface | Already complete on `main` |
 | Web UI on CF | Always on — CDN serves at zero Worker CPU cost |
@@ -695,6 +729,7 @@ With `nodejs_compat` and compat date >= `2025-04-01`, the `nodejs_compat_populat
 
 ## Parking Lot
 
+- GA4 analytics integration (not yet implemented in web app — `VITE_GA_MEASUREMENT_ID` documented but unused)
 - Public holiday API integration (auto-calculate days off)
 - AI-generated messages
 - OAuth client credentials flow
