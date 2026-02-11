@@ -266,11 +266,22 @@ footer {
 
   .form-row {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-row label {
+    width: 100%;
   }
 
   .form-row button {
     width: 100%;
     padding: 0.875rem 1.5rem;
+  }
+
+  .result-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 
   .endpoint-grid,
@@ -286,4 +297,3 @@ footer {
     font-size: 1rem;
   }
 }
-
