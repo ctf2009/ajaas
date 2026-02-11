@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import './App.css';
 
 type MessageType = 'awesome' | 'weekly' | 'random' | 'animal' | 'absurd' | 'meta' | 'unexpected';
@@ -9,6 +10,7 @@ function App() {
   const [messageType, setMessageType] = useState<MessageType>('awesome');
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const apiBase = '/api';
 
@@ -36,6 +38,22 @@ function App() {
       setResult('Oops! Something went wrong. The API might not be running.');
     }
     setLoading(false);
+  };
+
+  const getCardUrl = () => {
+    const cardName = encodeURIComponent(name || 'Rachel');
+    const base = `${window.location.origin}/card/${messageType}/${cardName}`;
+    return from ? `${base}?from=${encodeURIComponent(from)}` : base;
+  };
+
+  const copyCardLink = async () => {
+    try {
+      await navigator.clipboard.writeText(getCardUrl());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback: select text
+    }
   };
 
   const curlExample = () => {
@@ -126,8 +144,54 @@ function App() {
         {result && (
           <div className="result">
             <p>{result}</p>
+            <div className="result-actions">
+              <Link to={`/card/${messageType}/${encodeURIComponent(name || 'Rachel')}${from ? `?from=${encodeURIComponent(from)}` : ''}`} className="share-link">
+                View as card
+              </Link>
+              <button className="copy-link" onClick={copyCardLink}>
+                {copied ? 'Copied!' : 'Copy share link'}
+              </button>
+            </div>
           </div>
         )}
+      </section>
+
+      <section className="features">
+        <h2>Features</h2>
+        <div className="feature-grid">
+          <div className="feature">
+            <h3>Multiple Message Modes</h3>
+            <p>Simple, weekly, random, animal, absurd, meta, and unexpected compliments.</p>
+          </div>
+          <div className="feature">
+            <h3>Shareable Card Links</h3>
+            <p>Create personalized card URLs you can send anywhere.</p>
+          </div>
+          <div className="feature">
+            <h3>API + Plain Text</h3>
+            <p>Use JSON by default or request plain text via `Accept: text/plain`.</p>
+          </div>
+          <div className="feature">
+            <h3>Scheduled Delivery</h3>
+            <p>Automate recurring messages with cron expressions.</p>
+          </div>
+          <div className="feature">
+            <h3>Email + Webhook</h3>
+            <p>Deliver through SMTP email or signed webhooks.</p>
+          </div>
+          <div className="feature">
+            <h3>Encrypted Auth Tokens</h3>
+            <p>Tokens are AES-256-GCM encrypted with role-based permissions.</p>
+          </div>
+          <div className="feature">
+            <h3>OpenAPI Docs</h3>
+            <p>Swagger UI available at `/api/docs` for quick integration.</p>
+          </div>
+          <div className="feature">
+            <h3>Deploy Anywhere</h3>
+            <p>Run on Node/Docker or Cloudflare Workers from the same codebase.</p>
+          </div>
+        </div>
       </section>
 
       <section className="endpoints">
