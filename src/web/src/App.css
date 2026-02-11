@@ -145,6 +145,32 @@ section h2 {
   text-decoration: underline;
 }
 
+/* Features Section */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.feature {
+  padding: 1rem;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.feature h3 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.feature p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 /* Endpoints Section */
 .endpoint-grid {
   display: grid;
@@ -285,6 +311,7 @@ footer {
   }
 
   .endpoint-grid,
+  .feature-grid,
   .code-tabs {
     grid-template-columns: 1fr;
   }

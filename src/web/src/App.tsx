@@ -156,6 +156,44 @@ function App() {
         )}
       </section>
 
+      <section className="features">
+        <h2>Features</h2>
+        <div className="feature-grid">
+          <div className="feature">
+            <h3>Multiple Message Modes</h3>
+            <p>Simple, weekly, random, animal, absurd, meta, and unexpected compliments.</p>
+          </div>
+          <div className="feature">
+            <h3>Shareable Card Links</h3>
+            <p>Create personalized card URLs you can send anywhere.</p>
+          </div>
+          <div className="feature">
+            <h3>API + Plain Text</h3>
+            <p>Use JSON by default or request plain text via `Accept: text/plain`.</p>
+          </div>
+          <div className="feature">
+            <h3>Scheduled Delivery</h3>
+            <p>Automate recurring messages with cron expressions.</p>
+          </div>
+          <div className="feature">
+            <h3>Email + Webhook</h3>
+            <p>Deliver through SMTP email or signed webhooks.</p>
+          </div>
+          <div className="feature">
+            <h3>Encrypted Auth Tokens</h3>
+            <p>Tokens are AES-256-GCM encrypted with role-based permissions.</p>
+          </div>
+          <div className="feature">
+            <h3>OpenAPI Docs</h3>
+            <p>Swagger UI available at `/api/docs` for quick integration.</p>
+          </div>
+          <div className="feature">
+            <h3>Deploy Anywhere</h3>
+            <p>Run on Node/Docker or Cloudflare Workers from the same codebase.</p>
+          </div>
+        </div>
+      </section>
+
       <section className="endpoints">
         <h2>Endpoints</h2>
         <div className="endpoint-grid">
