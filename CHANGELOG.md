@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.4...ajaas-v0.1.5) (2026-02-12)
+
+
+### Features
+
+* **web:** add optional confetti burst animation to card view ([#19](https://github.com/ctf2009/ajaas/issues/19)) ([d95bdd3](https://github.com/ctf2009/ajaas/commit/d95bdd3bda3006126d6b9f97935a86997f7f5e79))
+
 ## [0.1.4](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.3...ajaas-v0.1.4) (2026-02-11)
 
 
