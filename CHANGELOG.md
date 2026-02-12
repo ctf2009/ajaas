@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.5...ajaas-v0.1.6) (2026-02-12)
+
+
+### Features
+
+* **weekly:** add timezone support via tz query parameter ([#21](https://github.com/ctf2009/ajaas/issues/21)) ([1c85d13](https://github.com/ctf2009/ajaas/commit/1c85d135e59a5683e2282aa724e5e485e014dc8f))
+
 ## [0.1.5](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.4...ajaas-v0.1.5) (2026-02-12)
 
 
