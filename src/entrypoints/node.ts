@@ -47,6 +47,12 @@ const apiApp = createApp({
   scheduler,
 });
 
+const schedulingActive =
+  config.endpoints.schedule.enabled &&
+  !!tokenService &&
+  !!storage &&
+  !!scheduler;
+
 const app = new Hono();
 
 if (config.web.enabled) {
@@ -97,7 +103,10 @@ const server = serve(
   (info) => {
     console.log(`AJaaS running at http://${info.address}:${info.port}`);
     console.log(`API docs at http://${info.address}:${info.port}/api/docs`);
-    console.log(`Scheduling: ${config.endpoints.schedule.enabled ? 'enabled' : 'disabled'}`);
+    console.log(
+      `Scheduling configured: ${config.endpoints.schedule.enabled ? 'enabled' : 'disabled'}`,
+    );
+    console.log(`Scheduling active: ${schedulingActive ? 'enabled' : 'disabled'}`);
     console.log(`Security: ${config.security.enabled ? 'enabled' : 'disabled'}`);
     console.log(`Tough love: ${config.messages.toughLove ? 'enabled' : 'disabled'}`);
   },

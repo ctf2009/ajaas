@@ -49,10 +49,10 @@ Provide reliable, explicit token revocation controls with cleanup.
 - [x] Mobile alignment fixes for Try It controls.
 
 ### Next
-- [ ] Add Features section to landing page.
-- [ ] Add dynamic feature discovery from `/health`.
-- [ ] Conditionally render security/scheduling/rate-limit indicators.
-- [ ] Add graceful fallback behavior if `/health` is unavailable.
+- [x] Add Features section to landing page.
+- [x] Add dynamic feature discovery from `/health`.
+- [x] Conditionally render security/scheduling/rate-limit indicators.
+- [x] Add graceful fallback behavior if `/health` is unavailable.
 
 ## Workstream C: Cloudflare Workers Completion
 ### Goal
@@ -86,15 +86,15 @@ Complete parity for scheduling, storage, and delivery on Workers.
 - [ ] Add route tests for `src/routes/schedule.ts`.
 - [ ] Add tests for `src/scheduler/index.ts` execution behavior.
 - [ ] Add tests for `src/delivery/email.ts`.
-- [ ] Add direct tests for `src/auth/middleware.ts`.
-- [ ] Add tests for `src/config.ts` parsing and validation.
+- [x] Add direct tests for `src/auth/middleware.ts`.
+- [x] Add tests for `src/config.ts` parsing and validation.
 
 ## Definition of Done (Near Term)
 Near-term plan is complete when all items below are done:
 - [ ] Worker scheduling path runs with DO alarms and SQLite.
 - [ ] Admin token revoke endpoint is live and tested.
 - [ ] Key scheduling and delivery paths have dedicated tests.
-- [ ] Web app feature discovery is implemented.
+- [x] Web app feature discovery is implemented.
 - [ ] Docs are aligned and deployment runbook is current.
 
 ## Backlog

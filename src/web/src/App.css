@@ -152,6 +152,25 @@ section h2 {
   gap: 1rem;
 }
 
+.feature-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.feature-status strong {
+  color: var(--text);
+}
+
+.feature-status-note {
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 .feature {
   padding: 1rem;
   background: var(--bg);

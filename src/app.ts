@@ -85,8 +85,9 @@ export function createApp(options: AppOptions): Hono {
 
   app.route('/api', messageRoutes(messageService));
 
+  const schedulingConfigured = config.endpoints.schedule.enabled;
   const schedulingActive =
-    config.endpoints.schedule.enabled &&
+    schedulingConfigured &&
     !!tokenService &&
     !!storage &&
     !!scheduler;
@@ -101,7 +102,9 @@ export function createApp(options: AppOptions): Hono {
   app.get('/health', (c) =>
     c.json({
       status: 'ok',
-      scheduling: schedulingActive,
+      scheduling: schedulingConfigured,
+      schedulingConfigured,
+      schedulingActive,
       security: config.security.enabled,
       web: config.web.enabled,
       rateLimit: config.rateLimit.enabled,

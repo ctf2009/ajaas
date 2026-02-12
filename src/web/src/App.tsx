@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './App.css';
 
 type MessageType = 'awesome' | 'weekly' | 'random' | 'animal' | 'absurd' | 'meta' | 'unexpected';
+type HealthState = {
+  scheduling: boolean;
+  schedulingConfigured?: boolean;
+};
 
 function App() {
   const [name, setName] = useState('');
@@ -11,6 +15,8 @@ function App() {
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [healthState, setHealthState] = useState<HealthState | null>(null);
+  const [healthUnavailable, setHealthUnavailable] = useState(false);
 
   const apiBase = '/api';
 
@@ -68,6 +74,33 @@ function App() {
     return `fetch("${endpoint}${fromParam}")
   .then(res => res.json())
   .then(data => console.log(data.message));`;
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadHealth = async () => {
+      try {
+        const response = await fetch('/health', { signal: controller.signal });
+        if (!response.ok) throw new Error('Health check failed');
+
+        const data = (await response.json()) as Partial<HealthState>;
+        setHealthState({
+          scheduling: !!data.scheduling,
+        });
+        setHealthUnavailable(false);
+      } catch {
+        setHealthUnavailable(true);
+      }
+    };
+
+    void loadHealth();
+    return () => controller.abort();
+  }, []);
+
+  const statusText = (flag: boolean | undefined): string => {
+    if (flag === undefined) return 'Unknown';
+    return flag ? 'Enabled' : 'Disabled';
   };
 
   return (
@@ -158,6 +191,16 @@ function App() {
 
       <section className="features">
         <h2>Features</h2>
+        <div className="feature-status">
+          <span>
+            Scheduling: <strong>{statusText(healthState?.schedulingConfigured ?? healthState?.scheduling)}</strong>
+          </span>
+        </div>
+        {healthUnavailable && (
+          <p className="feature-status-note">
+            Runtime feature status is unavailable right now. Showing full capability list.
+          </p>
+        )}
         <div className="feature-grid">
           <div className="feature">
             <h3>Multiple Message Modes</h3>
@@ -173,7 +216,12 @@ function App() {
           </div>
           <div className="feature">
             <h3>Scheduled Delivery</h3>
-            <p>Automate recurring messages with cron expressions.</p>
+            <p>
+              Automate recurring messages with cron expressions.
+              {healthState && !(healthState.schedulingConfigured ?? healthState.scheduling)
+                ? ' (Disabled on this deployment.)'
+                : ''}
+            </p>
           </div>
           <div className="feature">
             <h3>Email + Webhook</h3>
