@@ -28,7 +28,7 @@ Visit `http://localhost:3000` for the interactive demo, or dive straight into th
 curl http://localhost:3000/api/awesome/Rachel
 # -> {"message":"Awesome job, Rachel!"}
 
-curl http://localhost:3000/api/weekly/Mike
+curl "http://localhost:3000/api/weekly/Mike?tz=Australia/Sydney"
 # -> {"message":"Awesome job this week, Mike. Take the next 2 days off."}
 
 curl "http://localhost:3000/api/random/Alex?from=Boss"
@@ -47,7 +47,7 @@ curl "http://localhost:3000/api/random/Alex?from=Boss"
 | `GET /api/docs` | Swagger UI documentation |
 | `GET /health` | Health check with feature status |
 
-All message endpoints accept an optional `?from=Name` query parameter for attribution.
+All message endpoints accept an optional `?from=Name` query parameter for attribution. The weekly endpoint also accepts `?tz=` with an IANA timezone (e.g. `Australia/Sydney`) to calculate days off based on the caller's local day.
 
 Message endpoints also support content negotiation via the `Accept` header. Set `Accept: text/plain` to receive plain text responses instead of JSON.
 

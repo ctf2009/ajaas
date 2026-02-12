@@ -141,6 +141,9 @@ function CardView() {
     try {
       const url = new URL(getApiEndpoint(type, name), window.location.origin);
       if (from) url.searchParams.set('from', from);
+      if (type === 'weekly') {
+        url.searchParams.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone);
+      }
 
       const res = await fetch(url);
       const data = await res.json();

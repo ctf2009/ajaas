@@ -194,8 +194,8 @@ export class MessageService {
     return this.formatMessage(`Awesome job, :name!`, name, from);
   }
 
-  getWeeklyMessage(name: string, from?: string): string {
-    const daysOff = this.calculateDaysOff();
+  getWeeklyMessage(name: string, from?: string, tz?: string): string {
+    const daysOff = this.calculateDaysOff(tz);
     return this.formatMessage(
       `Awesome job this week, :name. Take the next ${daysOff} days off.`,
       name,
@@ -228,9 +228,23 @@ export class MessageService {
     return Array.from(types);
   }
 
-  private calculateDaysOff(): number {
+  private getDayOfWeek(tz?: string): number {
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
+    if (!tz) return now.getDay();
+
+    const weekday = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday: 'short',
+    }).format(now);
+
+    const dayMap: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+    };
+    return dayMap[weekday] ?? now.getDay();
+  }
+
+  private calculateDaysOff(tz?: string): number {
+    const dayOfWeek = this.getDayOfWeek(tz);
 
     // Basic logic: Friday = 2 days (weekend)
     // This can be enhanced later with public holiday API
