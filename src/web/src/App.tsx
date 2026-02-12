@@ -30,6 +30,9 @@ function App() {
     try {
       const url = new URL(getEndpoint(), window.location.origin);
       if (from) url.searchParams.set('from', from);
+      if (messageType === 'weekly') {
+        url.searchParams.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone);
+      }
 
       const res = await fetch(url);
       const data = await res.json();
@@ -56,16 +59,20 @@ function App() {
     }
   };
 
+  const getQueryString = () => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (messageType === 'weekly') params.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
+  };
+
   const curlExample = () => {
-    const endpoint = getEndpoint();
-    const fromParam = from ? `?from=${encodeURIComponent(from)}` : '';
-    return `curl "${window.location.origin}${endpoint}${fromParam}"`;
+    return `curl "${window.location.origin}${getEndpoint()}${getQueryString()}"`;
   };
 
   const jsExample = () => {
-    const endpoint = getEndpoint();
-    const fromParam = from ? `?from=${encodeURIComponent(from)}` : '';
-    return `fetch("${endpoint}${fromParam}")
+    return `fetch("${getEndpoint()}${getQueryString()}")
   .then(res => res.json())
   .then(data => console.log(data.message));`;
   };

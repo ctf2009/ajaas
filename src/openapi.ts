@@ -97,9 +97,11 @@ export const openApiSpec = {
         parameters: [
           { name: 'name', in: 'path', required: true, schema: { type: 'string' }, description: 'Recipient name' },
           { name: 'from', in: 'query', schema: { type: 'string' }, description: 'Optional sender attribution' },
+          { name: 'tz', in: 'query', schema: { type: 'string' }, description: 'IANA timezone (e.g. Australia/Sydney). Determines the local day of week for calculating days off. Defaults to server timezone.' },
         ],
         responses: {
           200: { description: 'Success', content: { 'application/json': { schema: { $ref: '#/components/schemas/MessageResponse' } } } },
+          400: { description: 'Invalid timezone', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
         },
       },
     },

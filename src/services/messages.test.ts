@@ -31,6 +31,16 @@ describe('MessageService', () => {
         const message = service.getWeeklyMessage('Rachel', 'Boss');
         expect(message).toMatch(/Awesome job this week, Rachel\. Take the next \d+ days off\. - Boss/);
       });
+
+      it('should accept a timezone parameter', () => {
+        const message = service.getWeeklyMessage('Rachel', undefined, 'Australia/Sydney');
+        expect(message).toMatch(/Awesome job this week, Rachel\. Take the next \d+ days off\./);
+      });
+
+      it('should use server timezone when tz is not provided', () => {
+        const message = service.getWeeklyMessage('Rachel');
+        expect(message).toMatch(/Take the next \d+ days off/);
+      });
     });
 
     describe('getRandomMessage', () => {

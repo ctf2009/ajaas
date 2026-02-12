@@ -34,7 +34,17 @@ export function messageRoutes(messageService: MessageService): Hono {
   app.get('/weekly/:name', (c) => {
     const name = c.req.param('name');
     const from = c.req.query('from');
-    return sendMessage(c, messageService.getWeeklyMessage(name, from));
+    const tz = c.req.query('tz');
+
+    if (tz) {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: tz });
+      } catch {
+        return c.json({ error: `Invalid timezone: ${tz}` }, 400);
+      }
+    }
+
+    return sendMessage(c, messageService.getWeeklyMessage(name, from, tz));
   });
 
   // GET /random/:name - Random message type

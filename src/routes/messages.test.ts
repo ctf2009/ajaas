@@ -56,6 +56,20 @@ describe('Message Routes', () => {
       const body = await readJson<MessageBody>(response);
       expect(body.message).toContain('- Boss');
     });
+
+    it('should accept a tz query parameter', async () => {
+      const response = await createApp().request('http://localhost/api/weekly/Mike?tz=Australia/Sydney');
+      expect(response.status).toBe(200);
+      const body = await readJson<MessageBody>(response);
+      expect(body.message).toMatch(/Awesome job this week, Mike\. Take the next \d+ days off\./);
+    });
+
+    it('should return 400 for invalid timezone', async () => {
+      const response = await createApp().request('http://localhost/api/weekly/Mike?tz=Not/Real');
+      expect(response.status).toBe(400);
+      const body = await readJson<ErrorBody>(response);
+      expect(body.error).toContain('Invalid timezone');
+    });
   });
 
   describe('GET /api/random/:name', () => {
