@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { launchConfetti } from './confetti';
 import './App.css';
 
 type MessageType = 'awesome' | 'weekly' | 'random' | 'animal' | 'absurd' | 'meta' | 'unexpected';
@@ -11,6 +12,8 @@ function App() {
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [confetti, setConfetti] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const apiBase = '/api';
 
@@ -37,17 +40,26 @@ function App() {
       const res = await fetch(url);
       const data = await res.json();
       setResult(data.message || data.error);
+      if (confetti && canvasRef.current && data.message) {
+        launchConfetti(canvasRef.current);
+      }
     } catch {
       setResult('Oops! Something went wrong. The API might not be running.');
     }
     setLoading(false);
   };
 
-  const getCardUrl = () => {
+  const getCardPath = () => {
     const cardName = encodeURIComponent(name || 'Rachel');
-    const base = `${window.location.origin}/card/${messageType}/${cardName}`;
-    return from ? `${base}?from=${encodeURIComponent(from)}` : base;
+    const base = `/card/${messageType}/${cardName}`;
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (confetti) params.set('confetti', 'true');
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
   };
+
+  const getCardUrl = () => `${window.location.origin}${getCardPath()}`;
 
   const copyCardLink = async () => {
     try {
@@ -79,6 +91,7 @@ function App() {
 
   return (
     <div className="container">
+      <canvas ref={canvasRef} className="confetti-canvas" />
       <header>
         <h1>AJaaS</h1>
         <p className="tagline">Awesome Job as a Service</p>
@@ -146,13 +159,23 @@ function App() {
               {loading ? 'Loading...' : 'Get Message'}
             </button>
           </div>
+          <div className="form-row">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={confetti}
+                onChange={(e) => setConfetti(e.target.checked)}
+              />
+              Confetti
+            </label>
+          </div>
         </div>
 
         {result && (
           <div className="result">
             <p>{result}</p>
             <div className="result-actions">
-              <Link to={`/card/${messageType}/${encodeURIComponent(name || 'Rachel')}${from ? `?from=${encodeURIComponent(from)}` : ''}`} className="share-link">
+              <Link to={getCardPath()} className="share-link">
                 View as card
               </Link>
               <button className="copy-link" onClick={copyCardLink}>
