@@ -166,7 +166,7 @@ function App() {
                 checked={confetti}
                 onChange={(e) => setConfetti(e.target.checked)}
               />
-              Confetti
+              Add some Confetti!
             </label>
           </div>
         </div>
