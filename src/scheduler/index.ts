@@ -65,11 +65,16 @@ export class Scheduler {
     }
 
     const olderThan = nowSeconds - this.revocationRetentionSeconds;
-    const removed = await this.storage.cleanupRevokedTokens(olderThan);
-    this.lastRevocationCleanupMs = nowMs;
 
-    if (removed > 0) {
-      console.log(`Cleaned up ${removed} expired token revocations`);
+    try {
+      const removed = await this.storage.cleanupRevokedTokens(olderThan);
+      this.lastRevocationCleanupMs = nowMs;
+
+      if (removed > 0) {
+        console.log(`Cleaned up ${removed} expired token revocations`);
+      }
+    } catch (error) {
+      console.error('Failed to cleanup revoked tokens:', error);
     }
   }
 
