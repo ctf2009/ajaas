@@ -23,6 +23,7 @@ export interface Storage {
   // Revocation
   revokeToken(jti: string): Promise<void>;
   isTokenRevoked(jti: string): Promise<boolean>;
+  cleanupRevokedTokens(olderThanTimestamp: number): Promise<number>;
 
   // Schedules
   createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Promise<Schedule>;

@@ -79,6 +79,13 @@ export class SQLiteStorage implements Storage {
     return stmt.get(jti) !== undefined;
   }
 
+
+  async cleanupRevokedTokens(olderThanTimestamp: number): Promise<number> {
+    const stmt = this.db.prepare('DELETE FROM revoked_tokens WHERE revoked_at < ?');
+    const result = stmt.run(olderThanTimestamp);
+    return result.changes;
+  }
+
   // Schedule methods
   async createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Promise<Schedule> {
     const id = randomBytes(8).toString('hex');

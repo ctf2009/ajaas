@@ -29,13 +29,13 @@ Provide reliable, explicit token revocation controls with cleanup.
 - Add revocation cleanup policy (time-based retention).
 
 ### Tasks
-- [ ] Extend `Role` in `src/auth/token.ts` to include `admin`.
-- [ ] Update role checks to enforce hierarchy.
-- [ ] Update `scripts/generate-key.ts` to support `--role admin`.
-- [ ] Add `src/routes/admin.ts` with auth-gated revoke endpoint.
-- [ ] Register admin routes in `src/app.ts`.
-- [ ] Add storage cleanup API for expired revocations.
-- [ ] Execute cleanup on a fixed cadence in scheduler path.
+- [x] Extend `Role` in `src/auth/token.ts` to include `admin`.
+- [x] Update role checks to enforce hierarchy.
+- [x] Update `scripts/generate-key.ts` to support `--role admin`.
+- [x] Add `src/routes/admin.ts` with auth-gated revoke endpoint.
+- [x] Register admin routes in `src/app.ts`.
+- [x] Add storage cleanup API for expired revocations.
+- [x] Execute cleanup on a fixed cadence in scheduler path.
 
 ### Deferred
 - Token inventory and listing APIs.
