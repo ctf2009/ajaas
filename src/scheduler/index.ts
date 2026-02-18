@@ -10,6 +10,9 @@ export class Scheduler {
   private emailDelivery: EmailDelivery;
   private webhookDelivery: WebhookDelivery;
   private pollInterval: number;
+  private revocationRetentionSeconds: number;
+  private revocationCleanupCadenceMs: number;
+  private lastRevocationCleanupMs: number = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -17,13 +20,17 @@ export class Scheduler {
     messageService: MessageService,
     emailDelivery: EmailDelivery,
     webhookDelivery?: WebhookDelivery,
-    pollIntervalMs: number = 60000 // Default: check every minute
+    pollIntervalMs: number = 60000, // Default: check every minute
+    revocationRetentionSeconds: number = 30 * 24 * 60 * 60, // 30 days
+    revocationCleanupCadenceMs: number = 6 * 60 * 60 * 1000, // 6 hours
   ) {
     this.storage = storage;
     this.messageService = messageService;
     this.emailDelivery = emailDelivery;
     this.webhookDelivery = webhookDelivery || new WebhookDelivery();
     this.pollInterval = pollIntervalMs;
+    this.revocationRetentionSeconds = revocationRetentionSeconds;
+    this.revocationCleanupCadenceMs = revocationCleanupCadenceMs;
   }
 
   start(): void {
@@ -41,11 +48,33 @@ export class Scheduler {
   }
 
   private async poll(): Promise<void> {
-    const now = Math.floor(Date.now() / 1000);
+    const nowMs = Date.now();
+    const now = Math.floor(nowMs / 1000);
+    await this.maybeCleanupRevocations(nowMs, now);
+
     const dueSchedules = await this.storage.getSchedulesDue(now);
 
     for (const schedule of dueSchedules) {
       await this.executeSchedule(schedule);
+    }
+  }
+
+  private async maybeCleanupRevocations(nowMs: number, nowSeconds: number): Promise<void> {
+    if (nowMs - this.lastRevocationCleanupMs < this.revocationCleanupCadenceMs) {
+      return;
+    }
+
+    const olderThan = nowSeconds - this.revocationRetentionSeconds;
+
+    try {
+      const removed = await this.storage.cleanupRevokedTokens(olderThan);
+      this.lastRevocationCleanupMs = nowMs;
+
+      if (removed > 0) {
+        console.log(`Cleaned up ${removed} expired token revocations`);
+      }
+    } catch (error) {
+      console.error('Failed to cleanup revoked tokens:', error);
     }
   }
 

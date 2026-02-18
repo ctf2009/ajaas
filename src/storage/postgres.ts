@@ -89,6 +89,14 @@ export class PostgresStorage implements Storage {
     return result.rows.length > 0;
   }
 
+  async cleanupRevokedTokens(olderThanTimestamp: number): Promise<number> {
+    const result = await this.pool.query(
+      'DELETE FROM revoked_tokens WHERE revoked_at < $1',
+      [olderThanTimestamp]
+    );
+    return result.rowCount ?? 0;
+  }
+
   async createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Promise<Schedule> {
     const id = randomBytes(8).toString('hex');
     const createdAt = Math.floor(Date.now() / 1000);

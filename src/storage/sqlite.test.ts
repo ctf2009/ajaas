@@ -34,6 +34,18 @@ describe('SQLiteStorage', () => {
       expect(await storage.isTokenRevoked('revoked-jti')).toBe(true);
       expect(await storage.isTokenRevoked('other-jti')).toBe(false);
     });
+
+
+    it('should cleanup old token revocations', async () => {
+      await storage.revokeToken('old-jti');
+      await storage.revokeToken('new-jti');
+
+      const removed = await storage.cleanupRevokedTokens(Math.floor(Date.now() / 1000) + 1);
+
+      expect(removed).toBe(2);
+      expect(await storage.isTokenRevoked('old-jti')).toBe(false);
+      expect(await storage.isTokenRevoked('new-jti')).toBe(false);
+    });
   });
 
   describe('schedules', () => {

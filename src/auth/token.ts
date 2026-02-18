@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import { deriveKeyBuffer, encrypt, decrypt } from '../crypto.js';
 
-export type Role = 'read' | 'schedule';
+export type Role = 'read' | 'schedule' | 'admin';
 
 export interface TokenPayload {
   jti: string; // Unique token ID for revocation
@@ -41,11 +41,14 @@ export class TokenService {
   }
 
   hasRole(payload: TokenPayload, requiredRole: Role): boolean {
-    // Role hierarchy: schedule > read
-    if (requiredRole === 'read') {
-      return payload.role === 'read' || payload.role === 'schedule';
-    }
-    return payload.role === requiredRole;
+    // Role hierarchy: admin > schedule > read
+    const roleWeight: Record<Role, number> = {
+      read: 1,
+      schedule: 2,
+      admin: 3,
+    };
+
+    return roleWeight[payload.role] >= roleWeight[requiredRole];
   }
 
   createToken(
