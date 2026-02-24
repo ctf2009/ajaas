@@ -23,40 +23,42 @@ describe('adminRoutes', () => {
   });
 
   it('revokes a token for admin role', async () => {
-    const { token } = tokenService.createToken('admin@example.com', 'Admin', 'admin');
-    const futureExp = Math.floor(Date.now() / 1000) + 86400;
+    const adminAuth = tokenService.createToken('admin@example.com', 'Admin', 'admin');
+    const target = tokenService.createToken('user@example.com', 'User', 'read');
 
     const response = await app.request('http://localhost/api/admin/revoke', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${token}`,
+        authorization: `Bearer ${adminAuth.token}`,
       },
-      body: JSON.stringify({ jti: 'to-revoke', exp: futureExp }),
+      body: JSON.stringify({ token: target.token }),
     });
 
     expect(response.status).toBe(200);
-    expect(await storage.isTokenRevoked('to-revoke')).toBe(true);
+    const json = await response.json() as { jti: string };
+    expect(json.jti).toBe(target.payload.jti);
+    expect(await storage.isTokenRevoked(target.payload.jti)).toBe(true);
   });
 
   it('rejects schedule role for admin endpoint', async () => {
-    const { token } = tokenService.createToken('scheduler@example.com', 'Scheduler', 'schedule');
-    const futureExp = Math.floor(Date.now() / 1000) + 86400;
+    const schedulerAuth = tokenService.createToken('scheduler@example.com', 'Scheduler', 'schedule');
+    const target = tokenService.createToken('user@example.com', 'User', 'read');
 
     const response = await app.request('http://localhost/api/admin/revoke', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${token}`,
+        authorization: `Bearer ${schedulerAuth.token}`,
       },
-      body: JSON.stringify({ jti: 'to-revoke', exp: futureExp }),
+      body: JSON.stringify({ token: target.token }),
     });
 
     expect(response.status).toBe(403);
-    expect(await storage.isTokenRevoked('to-revoke')).toBe(false);
+    expect(await storage.isTokenRevoked(target.payload.jti)).toBe(false);
   });
 
-  it('returns 400 when jti is missing', async () => {
+  it('returns 400 when token is missing', async () => {
     const { token } = tokenService.createToken('admin@example.com', 'Admin', 'admin');
 
     const response = await app.request('http://localhost/api/admin/revoke', {
@@ -71,7 +73,7 @@ describe('adminRoutes', () => {
     expect(response.status).toBe(400);
   });
 
-  it('returns 400 when exp is missing', async () => {
+  it('returns 400 for invalid token to revoke', async () => {
     const { token } = tokenService.createToken('admin@example.com', 'Admin', 'admin');
 
     const response = await app.request('http://localhost/api/admin/revoke', {
@@ -80,28 +82,30 @@ describe('adminRoutes', () => {
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ jti: 'to-revoke' }),
+      body: JSON.stringify({ token: 'not-a-real-token' }),
     });
 
     expect(response.status).toBe(400);
+    const json = await response.json() as { error: string };
+    expect(json.error).toContain('could not decrypt');
   });
 
   it('logs the revocation with caller details', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const { token } = tokenService.createToken('admin@example.com', 'Admin', 'admin');
-    const futureExp = Math.floor(Date.now() / 1000) + 86400;
+    const adminAuth = tokenService.createToken('admin@example.com', 'Admin', 'admin');
+    const target = tokenService.createToken('victim@example.com', 'Victim', 'read');
 
     await app.request('http://localhost/api/admin/revoke', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${token}`,
+        authorization: `Bearer ${adminAuth.token}`,
       },
-      body: JSON.stringify({ jti: 'target-jti', exp: futureExp }),
+      body: JSON.stringify({ token: target.token }),
     });
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      'Token revoked: jti=target-jti by=admin@example.com (Admin)',
+      `Token revoked: jti=${target.payload.jti} by=admin@example.com (Admin)`,
     );
     consoleSpy.mockRestore();
   });

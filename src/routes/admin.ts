@@ -4,8 +4,7 @@ import { TokenService } from '../auth/token.js';
 import { Storage } from '../storage/interface.js';
 
 interface RevokeBody {
-  jti: string;
-  exp: number;
+  token: string;
 }
 
 export function adminRoutes(storage: Storage, tokenService: TokenService): Hono<AuthEnv> {
@@ -23,18 +22,19 @@ export function adminRoutes(storage: Storage, tokenService: TokenService): Hono<
       return c.json({ error: 'Invalid JSON body' }, 400);
     }
 
-    if (!body.jti || typeof body.jti !== 'string') {
-      return c.json({ error: 'Missing required field: jti' }, 400);
+    if (!body.token || typeof body.token !== 'string') {
+      return c.json({ error: 'Missing required field: token' }, 400);
     }
 
-    if (!body.exp || typeof body.exp !== 'number') {
-      return c.json({ error: 'Missing required field: exp (token expiry timestamp)' }, 400);
+    const payload = tokenService.decrypt(body.token);
+    if (!payload) {
+      return c.json({ error: 'Invalid token: could not decrypt' }, 400);
     }
 
     const caller = c.get('tokenPayload');
-    await storage.revokeToken(body.jti, body.exp);
-    console.log(`Token revoked: jti=${body.jti} by=${caller.sub} (${caller.name})`);
-    return c.json({ success: true, jti: body.jti });
+    await storage.revokeToken(payload.jti, payload.exp);
+    console.log(`Token revoked: jti=${payload.jti} by=${caller.sub} (${caller.name})`);
+    return c.json({ success: true, jti: payload.jti });
   });
 
   return app;
