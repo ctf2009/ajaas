@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.6...ajaas-v0.1.7) (2026-02-24)
+
+
+### Features
+
+* confetti tryit ([#24](https://github.com/ctf2009/ajaas/issues/24)) ([24d64aa](https://github.com/ctf2009/ajaas/commit/24d64aab39e2e5fb5a61a3415d2f7e38be8da83e))
+
 ## [0.1.6](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.5...ajaas-v0.1.6) (2026-02-12)
 
 
