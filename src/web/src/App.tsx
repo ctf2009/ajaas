@@ -277,6 +277,20 @@ function App() {
             GitHub
           </a>
           <a href="/api/docs">API Docs</a>
+          <a
+            href="https://github.com/ctf2009/ajaas/blob/main/PRIVACY_POLICY.md"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Privacy
+          </a>
+          <a
+            href="https://github.com/ctf2009/ajaas/blob/main/TERMS_OF_SERVICE.md"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Terms
+          </a>
         </div>
         <p className="footer-message">
           You've scrolled this far. Awesome job. Take the rest of the day off.
