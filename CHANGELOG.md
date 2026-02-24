@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.7...ajaas-v0.1.8) (2026-02-24)
+
+
+### Features
+
+* add admin revoke endpoint and revocation cleanup ([#23](https://github.com/ctf2009/ajaas/issues/23)) ([f37ea72](https://github.com/ctf2009/ajaas/commit/f37ea72ecda08fc589be3ab962b1cafa56873c67))
+
 ## [0.1.7](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.6...ajaas-v0.1.7) (2026-02-24)
 
 
