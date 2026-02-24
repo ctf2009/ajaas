@@ -58,6 +58,13 @@ export class PostgresStorage implements Storage {
         CREATE INDEX IF NOT EXISTS idx_schedules_created_by ON schedules(created_by)
       `);
 
+      // Add exp column to existing revoked_tokens tables with far-future default
+      // so legacy revocations are never cleaned up prematurely
+      const farFuture = Math.floor(Date.now() / 1000) + 10 * 365 * 24 * 60 * 60; // ~10 years
+      await client.query(`
+        ALTER TABLE revoked_tokens ADD COLUMN IF NOT EXISTS exp INTEGER NOT NULL DEFAULT ${farFuture}
+      `);
+
       this.initialized = true;
     } finally {
       client.release();

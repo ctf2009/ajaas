@@ -63,7 +63,9 @@ export class SQLiteStorage implements Storage {
     const columnNames = columns.map((c) => c.name);
 
     if (!columnNames.includes('exp')) {
-      this.db.exec('ALTER TABLE revoked_tokens ADD COLUMN exp INTEGER NOT NULL DEFAULT 0');
+      // Default to far-future so legacy revocations are never cleaned up prematurely
+      const farFuture = Math.floor(Date.now() / 1000) + 10 * 365 * 24 * 60 * 60; // ~10 years
+      this.db.exec(`ALTER TABLE revoked_tokens ADD COLUMN exp INTEGER NOT NULL DEFAULT ${farFuture}`);
     }
   }
 
