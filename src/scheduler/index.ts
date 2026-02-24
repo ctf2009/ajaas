@@ -10,7 +10,6 @@ export class Scheduler {
   private emailDelivery: EmailDelivery;
   private webhookDelivery: WebhookDelivery;
   private pollInterval: number;
-  private revocationRetentionSeconds: number;
   private revocationCleanupCadenceMs: number;
   private lastRevocationCleanupMs: number = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -21,7 +20,6 @@ export class Scheduler {
     emailDelivery: EmailDelivery,
     webhookDelivery?: WebhookDelivery,
     pollIntervalMs: number = 60000, // Default: check every minute
-    revocationRetentionSeconds: number = 30 * 24 * 60 * 60, // 30 days
     revocationCleanupCadenceMs: number = 6 * 60 * 60 * 1000, // 6 hours
   ) {
     this.storage = storage;
@@ -29,7 +27,6 @@ export class Scheduler {
     this.emailDelivery = emailDelivery;
     this.webhookDelivery = webhookDelivery || new WebhookDelivery();
     this.pollInterval = pollIntervalMs;
-    this.revocationRetentionSeconds = revocationRetentionSeconds;
     this.revocationCleanupCadenceMs = revocationCleanupCadenceMs;
   }
 
@@ -64,10 +61,8 @@ export class Scheduler {
       return;
     }
 
-    const olderThan = nowSeconds - this.revocationRetentionSeconds;
-
     try {
-      const removed = await this.storage.cleanupRevokedTokens(olderThan);
+      const removed = await this.storage.cleanupRevokedTokens(nowSeconds);
       this.lastRevocationCleanupMs = nowMs;
 
       if (removed > 0) {

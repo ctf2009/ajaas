@@ -52,7 +52,6 @@ describe('Scheduler', () => {
       emailDelivery,
       undefined,
       60_000,
-      60,
       120_000,
     );
 

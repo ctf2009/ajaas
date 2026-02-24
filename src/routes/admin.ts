@@ -5,6 +5,7 @@ import { Storage } from '../storage/interface.js';
 
 interface RevokeBody {
   jti: string;
+  exp: number;
 }
 
 export function adminRoutes(storage: Storage, tokenService: TokenService): Hono<AuthEnv> {
@@ -26,7 +27,13 @@ export function adminRoutes(storage: Storage, tokenService: TokenService): Hono<
       return c.json({ error: 'Missing required field: jti' }, 400);
     }
 
-    await storage.revokeToken(body.jti);
+    if (!body.exp || typeof body.exp !== 'number') {
+      return c.json({ error: 'Missing required field: exp (token expiry timestamp)' }, 400);
+    }
+
+    const caller = c.get('tokenPayload');
+    await storage.revokeToken(body.jti, body.exp);
+    console.log(`Token revoked: jti=${body.jti} by=${caller.sub} (${caller.name})`);
     return c.json({ success: true, jti: body.jti });
   });
 

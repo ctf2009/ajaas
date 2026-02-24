@@ -17,7 +17,8 @@ export class SQLiteStorage implements Storage {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS revoked_tokens (
         jti TEXT PRIMARY KEY,
-        revoked_at INTEGER NOT NULL
+        revoked_at INTEGER NOT NULL,
+        exp INTEGER NOT NULL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS schedules (
@@ -40,8 +41,9 @@ export class SQLiteStorage implements Storage {
       CREATE INDEX IF NOT EXISTS idx_schedules_created_by ON schedules(created_by);
     `);
 
-    // Add webhook columns to existing databases
+    // Add columns to existing databases
     this.migrateWebhookColumns();
+    this.migrateRevocationExpColumn();
   }
 
   private migrateWebhookColumns(): void {
@@ -56,6 +58,15 @@ export class SQLiteStorage implements Storage {
     }
   }
 
+  private migrateRevocationExpColumn(): void {
+    const columns = this.db.pragma('table_info(revoked_tokens)') as { name: string }[];
+    const columnNames = columns.map((c) => c.name);
+
+    if (!columnNames.includes('exp')) {
+      this.db.exec('ALTER TABLE revoked_tokens ADD COLUMN exp INTEGER NOT NULL DEFAULT 0');
+    }
+  }
+
   private encryptField(value: string): string {
     if (!this.dataKey) return value;
     return encrypt(value, this.dataKey);
@@ -67,11 +78,11 @@ export class SQLiteStorage implements Storage {
   }
 
   // Revocation methods
-  async revokeToken(jti: string): Promise<void> {
+  async revokeToken(jti: string, exp: number): Promise<void> {
     const stmt = this.db.prepare(
-      'INSERT OR REPLACE INTO revoked_tokens (jti, revoked_at) VALUES (?, ?)'
+      'INSERT OR REPLACE INTO revoked_tokens (jti, revoked_at, exp) VALUES (?, ?, ?)'
     );
-    stmt.run(jti, Math.floor(Date.now() / 1000));
+    stmt.run(jti, Math.floor(Date.now() / 1000), exp);
   }
 
   async isTokenRevoked(jti: string): Promise<boolean> {
@@ -79,10 +90,9 @@ export class SQLiteStorage implements Storage {
     return stmt.get(jti) !== undefined;
   }
 
-
-  async cleanupRevokedTokens(olderThanTimestamp: number): Promise<number> {
-    const stmt = this.db.prepare('DELETE FROM revoked_tokens WHERE revoked_at < ?');
-    const result = stmt.run(olderThanTimestamp);
+  async cleanupRevokedTokens(nowTimestamp: number): Promise<number> {
+    const stmt = this.db.prepare('DELETE FROM revoked_tokens WHERE exp < ?');
+    const result = stmt.run(nowTimestamp);
     return result.changes;
   }
 

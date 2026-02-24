@@ -27,7 +27,8 @@ export class PostgresStorage implements Storage {
       await client.query(`
         CREATE TABLE IF NOT EXISTS revoked_tokens (
           jti TEXT PRIMARY KEY,
-          revoked_at INTEGER NOT NULL
+          revoked_at INTEGER NOT NULL,
+          exp INTEGER NOT NULL DEFAULT 0
         )
       `);
 
@@ -73,11 +74,11 @@ export class PostgresStorage implements Storage {
     return decrypt(value, this.dataKey) ?? value;
   }
 
-  async revokeToken(jti: string): Promise<void> {
+  async revokeToken(jti: string, exp: number): Promise<void> {
     await this.pool.query(
-      `INSERT INTO revoked_tokens (jti, revoked_at) VALUES ($1, $2)
-       ON CONFLICT (jti) DO UPDATE SET revoked_at = $2`,
-      [jti, Math.floor(Date.now() / 1000)]
+      `INSERT INTO revoked_tokens (jti, revoked_at, exp) VALUES ($1, $2, $3)
+       ON CONFLICT (jti) DO UPDATE SET revoked_at = $2, exp = $3`,
+      [jti, Math.floor(Date.now() / 1000), exp]
     );
   }
 
@@ -89,10 +90,10 @@ export class PostgresStorage implements Storage {
     return result.rows.length > 0;
   }
 
-  async cleanupRevokedTokens(olderThanTimestamp: number): Promise<number> {
+  async cleanupRevokedTokens(nowTimestamp: number): Promise<number> {
     const result = await this.pool.query(
-      'DELETE FROM revoked_tokens WHERE revoked_at < $1',
-      [olderThanTimestamp]
+      'DELETE FROM revoked_tokens WHERE exp < $1',
+      [nowTimestamp]
     );
     return result.rowCount ?? 0;
   }

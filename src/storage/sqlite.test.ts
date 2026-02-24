@@ -19,32 +19,36 @@ describe('SQLiteStorage', () => {
     });
 
     it('should return true after revoking a token', async () => {
-      await storage.revokeToken('test-jti');
+      const futureExp = Math.floor(Date.now() / 1000) + 86400;
+      await storage.revokeToken('test-jti', futureExp);
       expect(await storage.isTokenRevoked('test-jti')).toBe(true);
     });
 
     it('should handle revoking the same token twice', async () => {
-      await storage.revokeToken('test-jti');
-      await storage.revokeToken('test-jti');
+      const futureExp = Math.floor(Date.now() / 1000) + 86400;
+      await storage.revokeToken('test-jti', futureExp);
+      await storage.revokeToken('test-jti', futureExp);
       expect(await storage.isTokenRevoked('test-jti')).toBe(true);
     });
 
     it('should only revoke the specified token', async () => {
-      await storage.revokeToken('revoked-jti');
+      const futureExp = Math.floor(Date.now() / 1000) + 86400;
+      await storage.revokeToken('revoked-jti', futureExp);
       expect(await storage.isTokenRevoked('revoked-jti')).toBe(true);
       expect(await storage.isTokenRevoked('other-jti')).toBe(false);
     });
 
 
-    it('should cleanup old token revocations', async () => {
-      await storage.revokeToken('old-jti');
-      await storage.revokeToken('new-jti');
+    it('should cleanup revocations for expired tokens only', async () => {
+      const now = Math.floor(Date.now() / 1000);
+      await storage.revokeToken('expired-jti', now - 3600); // token already expired
+      await storage.revokeToken('active-jti', now + 86400); // token still valid
 
-      const removed = await storage.cleanupRevokedTokens(Math.floor(Date.now() / 1000) + 1);
+      const removed = await storage.cleanupRevokedTokens(now);
 
-      expect(removed).toBe(2);
-      expect(await storage.isTokenRevoked('old-jti')).toBe(false);
-      expect(await storage.isTokenRevoked('new-jti')).toBe(false);
+      expect(removed).toBe(1);
+      expect(await storage.isTokenRevoked('expired-jti')).toBe(false);
+      expect(await storage.isTokenRevoked('active-jti')).toBe(true);
     });
   });
 

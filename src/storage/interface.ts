@@ -17,13 +17,14 @@ export interface Schedule {
 export interface RevokedToken {
   jti: string;
   revokedAt: number;
+  exp: number; // Token expiry timestamp (unix seconds)
 }
 
 export interface Storage {
   // Revocation
-  revokeToken(jti: string): Promise<void>;
+  revokeToken(jti: string, exp: number): Promise<void>;
   isTokenRevoked(jti: string): Promise<boolean>;
-  cleanupRevokedTokens(olderThanTimestamp: number): Promise<number>;
+  cleanupRevokedTokens(nowTimestamp: number): Promise<number>;
 
   // Schedules
   createSchedule(schedule: Omit<Schedule, 'id' | 'createdAt'>): Promise<Schedule>;
