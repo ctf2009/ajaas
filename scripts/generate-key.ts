@@ -35,7 +35,7 @@ Usage: npm run generate-key -- --sub <email> --name <name> --role <role> [option
 Required:
   --sub, --email   Subject identifier (e.g., email address)
   --name           Display name
-  --role           Role: 'read' or 'schedule'
+  --role           Role: 'read', 'schedule', or 'admin'
 
 Optional:
   --expires        Expiry duration (default: 365d). Examples: 30d, 90d, 1y
@@ -48,8 +48,8 @@ Examples:
     process.exit(1);
   }
 
-  if (!['read', 'schedule'].includes(role)) {
-    console.error(`Error: role must be 'read' or 'schedule'`);
+  if (!['read', 'schedule', 'admin'].includes(role)) {
+    console.error(`Error: role must be 'read', 'schedule', or 'admin'`);
     process.exit(1);
   }
 

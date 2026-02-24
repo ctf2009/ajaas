@@ -7,6 +7,7 @@ import type { Config } from './config.js';
 import { rateLimiter } from './middleware/ratelimit.js';
 import { openApiSpec } from './openapi.js';
 import { messageRoutes } from './routes/messages.js';
+import { adminRoutes } from './routes/admin.js';
 import { scheduleRoutes } from './routes/schedule.js';
 import { MessageService } from './services/messages.js';
 import type { Scheduler } from './scheduler/index.js';
@@ -93,6 +94,10 @@ export function createApp(options: AppOptions): Hono {
 
   if (schedulingActive) {
     app.route('/api', scheduleRoutes(storage, tokenService, scheduler));
+  }
+
+  if (tokenService && storage) {
+    app.route('/api', adminRoutes(storage, tokenService));
   }
 
   app.get('/api/openapi.json', (c) => c.json(openApiSpec));

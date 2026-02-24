@@ -100,7 +100,7 @@ describe('Storage Factory', () => {
       const jti = 'test-token-id';
       expect(await storage.isTokenRevoked(jti)).toBe(false);
 
-      await storage.revokeToken(jti);
+      await storage.revokeToken(jti, Math.floor(Date.now() / 1000) + 86400);
       expect(await storage.isTokenRevoked(jti)).toBe(true);
     });
   });

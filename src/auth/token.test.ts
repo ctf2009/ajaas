@@ -165,6 +165,43 @@ describe('TokenService', () => {
 
       expect(service.hasRole(readPayload, 'schedule')).toBe(false);
     });
+
+
+    it('should return true for admin role when schedule is required (hierarchy)', () => {
+      const adminPayload: TokenPayload = {
+        jti: 'test-id',
+        sub: 'user@example.com',
+        name: 'Test User',
+        role: 'admin',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
+
+      expect(service.hasRole(adminPayload, 'schedule')).toBe(true);
+    });
+
+    it('should return true for admin role when read is required (hierarchy)', () => {
+      const adminPayload: TokenPayload = {
+        jti: 'test-id',
+        sub: 'user@example.com',
+        name: 'Test User',
+        role: 'admin',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
+
+      expect(service.hasRole(adminPayload, 'read')).toBe(true);
+    });
+
+    it('should return false for schedule role when admin is required', () => {
+      const schedulePayload: TokenPayload = {
+        jti: 'test-id',
+        sub: 'user@example.com',
+        name: 'Test User',
+        role: 'schedule',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
+
+      expect(service.hasRole(schedulePayload, 'admin')).toBe(false);
+    });
   });
 
   describe('createToken', () => {
