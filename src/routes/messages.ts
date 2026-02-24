@@ -54,6 +54,13 @@ export function messageRoutes(messageService: MessageService): Hono {
     return sendMessage(c, messageService.getRandomMessage(name, from));
   });
 
+  // GET /shane/:name - WFT principal engineer energy
+  app.get('/shane/:name', (c) => {
+    const name = c.req.param('name');
+    const from = c.req.query('from');
+    return sendMessage(c, messageService.getShaneMessage(name, from));
+  });
+
   // GET /message/:type/:name - Specific message type
   app.get('/message/:type/:name', (c) => {
     const type = c.req.param('type');

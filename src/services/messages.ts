@@ -170,6 +170,13 @@ const templates: MessageTemplate[] = [
 
 export class MessageService {
   private includeToughLove: boolean;
+  private shaneWftTemplates: string[] = [
+    "Shane thinks this delivery is first-class, :name.",
+    "Shane thinks WFT mode is all signal and no noise, and you nailed it, :name.",
+    "Shane thinks your sprint output is clean, fast, and mobile-ready, :name.",
+    "Shane's energy thinks calm focus beats chaos every time, :name.",
+    "Shane thinks this work would hold up even on train wifi, :name.",
+  ];
 
   constructor(includeToughLove: boolean = true) {
     this.includeToughLove = includeToughLove;
@@ -207,6 +214,13 @@ export class MessageService {
     const available = this.getAvailableTemplates();
     const template = available[Math.floor(Math.random() * available.length)];
     return this.formatMessage(template.template, name, from);
+  }
+
+  getShaneMessage(name: string, from?: string): string {
+    const template = this.shaneWftTemplates[
+      Math.floor(Math.random() * this.shaneWftTemplates.length)
+    ];
+    return this.formatMessage(template, name, from);
   }
 
   getMessageByType(type: MessageType, name: string, from?: string): string | null {
