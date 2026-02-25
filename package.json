@@ -34,7 +34,7 @@
     "@hono/swagger-ui": "^0.5.3",
     "better-sqlite3": "^11.7.0",
     "croner": "^9.0.0",
-    "hono": "^4.11.9",
+    "hono": "^4.11.10",
     "nodemailer": "^7.0.13",
     "pg": "^8.18.0"
   },
