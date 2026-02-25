@@ -98,7 +98,7 @@ Near-term plan is complete when all items below are done:
 - [ ] Docs are aligned and deployment runbook is current.
 
 ## Backlog
-- GA4 analytics wiring.
+- ~~GA4 analytics wiring.~~ Done — runtime injection via `GA_MEASUREMENT_ID` env var.
 - Public holiday integration.
 - AI-generated message variants.
 - OAuth client credentials flow.
