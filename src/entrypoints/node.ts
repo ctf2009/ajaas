@@ -7,6 +7,7 @@ import { createTokenService } from '../auth/token.js';
 import { loadConfig } from '../config.js';
 import { ConsoleDelivery, NodemailerDelivery } from '../delivery/email.js';
 import { Scheduler } from '../scheduler/index.js';
+import { injectCardMeta } from '../seo.js';
 import { MessageService } from '../services/messages.js';
 import { createStorage } from '../storage/factory.js';
 import type { Storage } from '../storage/interface.js';
@@ -81,7 +82,7 @@ if (config.web.enabled) {
       }
 
       if (indexHtml) {
-        return c.html(indexHtml);
+        return c.html(injectCardMeta(indexHtml, c.req.path));
       }
 
       return next();
