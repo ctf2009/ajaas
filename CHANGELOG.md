@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.9](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.8...ajaas-v0.1.9) (2026-02-25)
+
+
+### Features
+
+* make Google Analytics a runtime config instead of build-time ([0857a17](https://github.com/ctf2009/ajaas/commit/0857a17ec069e92a6ee42cf872db03f0d8e419d6))
+
+
+### Bug Fixes
+
+* substitute GA_MEASUREMENT_ID in Worker-served HTML ([54883ea](https://github.com/ctf2009/ajaas/commit/54883eaf19d6938066a9e0ae2b3919f3b698bb4e))
+
 ## [0.1.8](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.7...ajaas-v0.1.8) (2026-02-24)
 
 
