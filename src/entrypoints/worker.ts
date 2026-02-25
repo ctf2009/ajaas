@@ -1,5 +1,6 @@
 import { createApp } from '../app.js';
 import { loadConfig } from '../config.js';
+import { injectCardMeta } from '../seo.js';
 import { MessageService } from '../services/messages.js';
 
 interface WorkerEnv {
@@ -58,7 +59,8 @@ export default {
     if (contentType.includes('text/html')) {
       const html = await response.text();
       const gaId = typeof env.GA_MEASUREMENT_ID === 'string' ? env.GA_MEASUREMENT_ID : '';
-      const modified = html.replace('{{GA_MEASUREMENT_ID}}', gaId);
+      const withGa = html.replace('{{GA_MEASUREMENT_ID}}', gaId);
+      const modified = injectCardMeta(withGa, url.pathname);
       return new Response(modified, {
         status: response.status,
         headers: response.headers,
