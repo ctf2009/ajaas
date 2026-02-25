@@ -21,7 +21,12 @@ export function injectCardMeta(html: string, pathname: string): string {
   if (!match) return html;
 
   const type = match[1];
-  const rawName = decodeURIComponent(match[2]);
+  let rawName: string;
+  try {
+    rawName = decodeURIComponent(match[2]);
+  } catch {
+    rawName = match[2];
+  }
   const description = cardTypeDescriptions[type] || 'a personalized compliment';
 
   const ogTitle = `${rawName}, you're doing ${description}! | AJaaS`;
