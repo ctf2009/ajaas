@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono, type Context } from 'hono';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createApp } from '../app.js';
 import { createTokenService } from '../auth/token.js';
 import { loadConfig } from '../config.js';
@@ -52,13 +52,17 @@ const app = new Hono();
 if (config.web.enabled) {
   const webRoot = './dist/web';
   if (existsSync(webRoot)) {
+    const indexPath = `${webRoot}/index.html`;
+    const indexHtml = existsSync(indexPath)
+      ? readFileSync(indexPath, 'utf-8').replace(
+          '{{GA_MEASUREMENT_ID}}',
+          config.web.gaMeasurementId,
+        )
+      : null;
+
     const staticAssets = serveStatic({
       root: webRoot,
       rewriteRequestPath: (path) => path.replace(/^\/+/, ''),
-    });
-    const staticIndex = serveStatic({
-      root: webRoot,
-      path: 'index.html',
     });
 
     const isStaticAssetPath = (path: string): boolean => /\.[^/]+$/.test(path);
@@ -76,7 +80,11 @@ if (config.web.enabled) {
         return staticAssets(c, next);
       }
 
-      return staticIndex(c, async () => {});
+      if (indexHtml) {
+        return c.html(indexHtml);
+      }
+
+      return next();
     };
 
     app.on(['GET', 'HEAD'], '/', serveWeb);

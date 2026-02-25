@@ -14,6 +14,7 @@ export interface Config {
   host: string;
   web: {
     enabled: boolean;
+    gaMeasurementId: string;
   };
   endpoints: {
     schedule: {
@@ -97,6 +98,7 @@ export function loadConfig(envFilePath?: string): Config {
     host: process.env.HOST || '0.0.0.0',
     web: {
       enabled: getEnvBoolean('WEB_ENABLED', true),
+      gaMeasurementId: process.env.GA_MEASUREMENT_ID || '',
     },
     endpoints: {
       schedule: {
