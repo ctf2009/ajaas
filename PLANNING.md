@@ -15,7 +15,7 @@ It tracks what is done, what is next, and what is deferred.
 
 ## Priority Roadmap
 1. Complete Cloudflare scheduling and storage path.
-2. Add token revocation admin flow and cleanup policy.
+2. ~~Add token revocation admin flow and cleanup policy.~~ Done.
 3. Improve reliability and test coverage around scheduling and delivery.
 4. Improve web feature discovery and product polish.
 
@@ -49,7 +49,7 @@ Provide reliable, explicit token revocation controls with cleanup.
 - [x] Mobile alignment fixes for Try It controls.
 
 ### Next
-- [ ] Add Features section to landing page.
+- [x] Add Features section to landing page.
 - [ ] Add dynamic feature discovery from `/health`.
 - [ ] Conditionally render security/scheduling/rate-limit indicators.
 - [ ] Add graceful fallback behavior if `/health` is unavailable.
@@ -71,9 +71,9 @@ Complete parity for scheduling, storage, and delivery on Workers.
 
 ## Workstream D: Reliability and Refactor
 ### API and Config
-- [ ] Standardize error response patterns across routes.
+- [x] Standardize error response patterns across routes.
 - [ ] Decide whether non-message routes need content negotiation support.
-- [ ] Tighten config validation for storage and scheduling edge cases.
+- [x] Tighten config validation for storage and scheduling edge cases.
 
 ### Storage Interface
 - [ ] Re-evaluate whether `close()` should remain required for all adapters.
@@ -84,7 +84,7 @@ Complete parity for scheduling, storage, and delivery on Workers.
 
 ## Test Plan Gaps
 - [ ] Add route tests for `src/routes/schedule.ts`.
-- [ ] Add tests for `src/scheduler/index.ts` execution behavior.
+- [x] Add tests for `src/scheduler/index.ts` execution behavior.
 - [ ] Add tests for `src/delivery/email.ts`.
 - [ ] Add direct tests for `src/auth/middleware.ts`.
 - [ ] Add tests for `src/config.ts` parsing and validation.
@@ -92,7 +92,7 @@ Complete parity for scheduling, storage, and delivery on Workers.
 ## Definition of Done (Near Term)
 Near-term plan is complete when all items below are done:
 - [ ] Worker scheduling path runs with DO alarms and SQLite.
-- [ ] Admin token revoke endpoint is live and tested.
+- [x] Admin token revoke endpoint is live and tested.
 - [ ] Key scheduling and delivery paths have dedicated tests.
 - [ ] Web app feature discovery is implemented.
 - [ ] Docs are aligned and deployment runbook is current.

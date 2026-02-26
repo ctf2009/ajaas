@@ -17,7 +17,7 @@ AJaaS (Awesome Job As A Service) is a wholesome API that generates personalized 
 ### Security Model
 
 - Tokens are **encrypted** (AES-256-GCM), not just signed
-- Role hierarchy: `schedule` > `read`
+- Role hierarchy: `admin` > `schedule` > `read`
 - Schedule endpoints **always** require auth, even if global security is disabled
 - Revocation via `jti` blocklist in storage (SQLite or PostgreSQL)
 
