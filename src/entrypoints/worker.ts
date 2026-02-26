@@ -60,7 +60,7 @@ export default {
       const html = await response.text();
       const gaId = typeof env.GA_MEASUREMENT_ID === 'string' ? env.GA_MEASUREMENT_ID : '';
       const withGa = html.replace('{{GA_MEASUREMENT_ID}}', gaId);
-      const modified = injectCardMeta(withGa, url.pathname);
+      const modified = injectCardMeta(withGa, url.pathname, url.origin);
       return new Response(modified, {
         status: response.status,
         headers: response.headers,

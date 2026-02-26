@@ -1,5 +1,3 @@
-const SITE_URL = 'https://ajaas.io';
-
 const cardTypeDescriptions: Record<string, string> = {
   awesome: 'an awesome job',
   weekly: 'an amazing week',
@@ -16,7 +14,7 @@ const CARD_PATH_RE = /^\/card\/(awesome|weekly|random|animal|absurd|meta|unexpec
  * If the path is a card route, returns HTML with dynamic OG/Twitter meta tags
  * injected. Otherwise returns the HTML unchanged.
  */
-export function injectCardMeta(html: string, pathname: string): string {
+export function injectCardMeta(html: string, pathname: string, siteUrl: string): string {
   const match = CARD_PATH_RE.exec(pathname);
   if (!match) return html;
 
@@ -31,7 +29,8 @@ export function injectCardMeta(html: string, pathname: string): string {
 
   const ogTitle = `${rawName}, you're doing ${description}! | AJaaS`;
   const ogDescription = `Someone thinks ${rawName} deserves ${description}. Open this card to see the full message.`;
-  const ogUrl = `${SITE_URL}/card/${type}/${encodeURIComponent(rawName)}`;
+  const baseUrl = siteUrl.replace(/\/+$/, '');
+  const ogUrl = `${baseUrl}/card/${type}/${encodeURIComponent(rawName)}`;
 
   // Replace the static OG title/description/url and Twitter title/description
   let result = html;
