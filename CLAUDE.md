@@ -47,7 +47,7 @@ npm run dev:web      # Web dev server with API proxy
   - `app.ts` - Shared Hono app factory
   - `entrypoints/node.ts` - Local/Docker runtime entrypoint
   - `entrypoints/worker.ts` - Cloudflare Worker entrypoint
-  - `routes/` - API route handlers (messages, schedule)
+  - `routes/` - API route handlers (admin, messages, schedule)
   - `scheduler/` - Cron-based polling scheduler
   - `services/` - Message generation logic and templates
   - `storage/` - Storage interface, SQLite and PostgreSQL implementations
