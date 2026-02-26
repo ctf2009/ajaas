@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.10](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.9...ajaas-v0.1.10) (2026-02-26)
+
+
+### Features
+
+* **web:** add SEO meta tags, structured data, and dynamic card OG tags ([86af819](https://github.com/ctf2009/ajaas/commit/86af819c2265cb1470f9a425daa59de17f118265))
+
+
+### Bug Fixes
+
+* **seo:** derive site URL from request instead of hardcoding ([f852aa7](https://github.com/ctf2009/ajaas/commit/f852aa7690f90c75ca606299cba646ef8e35f42d))
+* **seo:** handle malformed percent-encoding in card paths ([b5a2187](https://github.com/ctf2009/ajaas/commit/b5a2187ca77d126831981548ff4f9159e2bcb947))
+
 ## [0.1.9](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.8...ajaas-v0.1.9) (2026-02-25)
 
 
