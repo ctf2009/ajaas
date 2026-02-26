@@ -82,7 +82,8 @@ if (config.web.enabled) {
       }
 
       if (indexHtml) {
-        return c.html(injectCardMeta(indexHtml, c.req.path));
+        const origin = new URL(c.req.url).origin;
+        return c.html(injectCardMeta(indexHtml, c.req.path, origin));
       }
 
       return next();
