@@ -118,6 +118,19 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/shane/{name}': {
+      get: {
+        tags: ['messages'],
+        summary: 'Get a Shane WFT message',
+        parameters: [
+          { name: 'name', in: 'path', required: true, schema: { type: 'string' }, description: 'Recipient name' },
+          { name: 'from', in: 'query', schema: { type: 'string' }, description: 'Optional sender attribution' },
+        ],
+        responses: {
+          200: { description: 'Success', content: { 'application/json': { schema: { $ref: '#/components/schemas/MessageResponse' } } } },
+        },
+      },
+    },
     '/api/message/{type}/{name}': {
       get: {
         tags: ['messages'],
