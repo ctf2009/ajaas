@@ -158,6 +158,32 @@
   color: var(--primary);
 }
 
+/* GIF on card */
+.card-gif {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.card-gif img {
+  max-width: 240px;
+  width: 100%;
+  border-radius: 8px;
+}
+
+.card-gif-attribution {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.card-gif-attribution:hover {
+  color: var(--primary);
+  text-decoration: none;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .card {

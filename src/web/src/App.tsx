@@ -1,9 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { launchConfetti } from './confetti';
 import './App.css';
 
 type MessageType = 'awesome' | 'weekly' | 'random' | 'animal' | 'absurd' | 'meta' | 'unexpected';
+
+interface GifResult {
+  id: string;
+  title: string;
+  previewUrl: string;
+}
 
 function App() {
   const [name, setName] = useState('');
@@ -14,6 +20,11 @@ function App() {
   const [copied, setCopied] = useState(false);
   const [confetti, setConfetti] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [gifQuery, setGifQuery] = useState('');
+  const [gifResults, setGifResults] = useState<GifResult[]>([]);
+  const [selectedGif, setSelectedGif] = useState<string | null>(null);
+  const [gifLoading, setGifLoading] = useState(false);
 
   const apiBase = '/api';
 
@@ -28,8 +39,24 @@ function App() {
     }
   };
 
+  const searchGifs = useCallback(async () => {
+    if (!gifQuery.trim()) return;
+    setGifLoading(true);
+    try {
+      const res = await fetch(`/api/giphy/search?q=${encodeURIComponent(gifQuery)}&limit=9`);
+      const data = await res.json();
+      setGifResults(data.results || []);
+    } catch {
+      setGifResults([]);
+    }
+    setGifLoading(false);
+  }, [gifQuery]);
+
   const tryIt = async () => {
     setLoading(true);
+    setSelectedGif(null);
+    setGifResults([]);
+    setGifQuery('');
     try {
       const url = new URL(getEndpoint(), window.location.origin);
       if (from) url.searchParams.set('from', from);
@@ -55,6 +82,7 @@ function App() {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (confetti) params.set('confetti', 'true');
+    if (selectedGif) params.set('gif', selectedGif);
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   };
@@ -181,6 +209,49 @@ function App() {
               <button className="copy-link" onClick={copyCardLink}>
                 {copied ? 'Copied!' : 'Copy share link'}
               </button>
+            </div>
+
+            <div className="gif-search">
+              <p className="gif-search-label">Add a GIF to your card (optional)</p>
+              <div className="gif-search-row">
+                <input
+                  className="gif-search-input"
+                  type="text"
+                  value={gifQuery}
+                  onChange={(e) => setGifQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && searchGifs()}
+                  placeholder="Search GIFs..."
+                />
+                <button
+                  className="gif-search-btn"
+                  onClick={searchGifs}
+                  disabled={gifLoading || !gifQuery.trim()}
+                >
+                  {gifLoading ? '...' : 'Search'}
+                </button>
+              </div>
+
+              {gifResults.length > 0 && (
+                <>
+                  <div className="gif-grid">
+                    {gifResults.map((gif) => (
+                      <img
+                        key={gif.id}
+                        src={gif.previewUrl}
+                        alt={gif.title}
+                        className={`gif-thumb${selectedGif === gif.id ? ' gif-selected' : ''}`}
+                        onClick={() => setSelectedGif(selectedGif === gif.id ? null : gif.id)}
+                        title={gif.title}
+                      />
+                    ))}
+                  </div>
+                  <p className="gif-attribution">
+                    <a href="https://giphy.com" target="_blank" rel="noopener noreferrer">
+                      Powered by GIPHY
+                    </a>
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}

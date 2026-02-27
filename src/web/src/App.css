@@ -282,6 +282,104 @@ footer {
   font-size: 0.875rem;
 }
 
+/* GIF Search */
+.gif-search {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.gif-search-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+  font-style: normal;
+}
+
+.gif-search-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.gif-search-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+.gif-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.gif-search-btn {
+  padding: 0.5rem 0.9rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.gif-search-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.gif-search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gif-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.gif-thumb {
+  aspect-ratio: 1;
+  object-fit: cover;
+  width: 100%;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, opacity 0.15s;
+  display: block;
+}
+
+.gif-thumb:hover {
+  opacity: 0.85;
+}
+
+.gif-thumb.gif-selected {
+  border-color: var(--primary);
+}
+
+.gif-attribution {
+  margin-top: 0.4rem;
+  text-align: right;
+  font-size: 0.7rem;
+  font-style: normal;
+}
+
+.gif-attribution a {
+  color: var(--text-muted);
+}
+
+.gif-attribution a:hover {
+  color: var(--primary);
+  text-decoration: none;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .container {

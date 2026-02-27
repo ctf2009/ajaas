@@ -32,6 +32,7 @@ function CardView() {
   const [searchParams] = useSearchParams();
   const from = searchParams.get('from');
   const showConfetti = searchParams.get('confetti') === 'true';
+  const gifId = searchParams.get('gif');
 
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +118,22 @@ function CardView() {
             <>
               <p className="card-greeting">Hey {decodeURIComponent(name)},</p>
               <p className="card-message">{message}</p>
+              {gifId && (
+                <div className="card-gif">
+                  <img
+                    src={`https://media.giphy.com/media/${gifId}/giphy.gif`}
+                    alt="GIF"
+                  />
+                  <a
+                    className="card-gif-attribution"
+                    href="https://giphy.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    via GIPHY
+                  </a>
+                </div>
+              )}
               {from && <p className="card-from">&mdash; from {from}</p>}
             </>
           )}
