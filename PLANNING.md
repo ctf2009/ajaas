@@ -72,30 +72,42 @@ Complete parity for scheduling, storage, and delivery on Workers.
 ## Workstream D: Reliability and Refactor
 ### API and Config
 - [x] Standardize error response patterns across routes.
-- [ ] Decide whether non-message routes need content negotiation support.
+- [x] Decide whether non-message routes need content negotiation support.
+  - **Decision:** JSON-only for admin and schedule routes. Content negotiation
+    (`Accept: text/plain`) is intentionally limited to message endpoints, which
+    return a single string with a natural plain-text form. Admin and schedule
+    routes return structured objects that have no meaningful plain-text
+    representation.
 - [x] Tighten config validation for storage and scheduling edge cases.
 
 ### Storage Interface
-- [ ] Re-evaluate whether `close()` should remain required for all adapters.
-- [ ] Re-evaluate formalizing `initialize()` lifecycle behavior.
+- [x] Re-evaluate whether `close()` should remain required for all adapters.
+  - **Decision:** Keep `close()` required. Both SQLite (`better-sqlite3`) and
+    PostgreSQL (`pg` pool) hold open resources that must be released. `close()`
+    is called on graceful shutdown and in tests via `afterEach`.
+- [x] Re-evaluate formalizing `initialize()` lifecycle behavior.
+  - **Decision:** Do not add `initialize()` to the interface. Both adapters
+    handle schema setup in the constructor (SQLite synchronously, PostgreSQL
+    lazily on first query). There is no async boot phase that callers need to
+    await.
 
 ### Documentation Consistency
-- [ ] Keep `README.md`, `AGENTS.md`, and `CLAUDE.md` aligned with actual behavior.
+- [x] Keep `README.md`, `AGENTS.md`, and `CLAUDE.md` aligned with actual behavior.
 
 ## Test Plan Gaps
-- [ ] Add route tests for `src/routes/schedule.ts`.
+- [x] Add route tests for `src/routes/schedule.ts`.
 - [x] Add tests for `src/scheduler/index.ts` execution behavior.
-- [ ] Add tests for `src/delivery/email.ts`.
-- [ ] Add direct tests for `src/auth/middleware.ts`.
-- [ ] Add tests for `src/config.ts` parsing and validation.
+- [x] Add tests for `src/delivery/email.ts`.
+- [x] Add direct tests for `src/auth/middleware.ts`.
+- [x] Add tests for `src/config.ts` parsing and validation.
 
 ## Definition of Done (Near Term)
 Near-term plan is complete when all items below are done:
 - [ ] Worker scheduling path runs with DO alarms and SQLite.
 - [x] Admin token revoke endpoint is live and tested.
-- [ ] Key scheduling and delivery paths have dedicated tests.
+- [x] Key scheduling and delivery paths have dedicated tests.
 - [ ] Web app feature discovery is implemented.
-- [ ] Docs are aligned and deployment runbook is current.
+- [x] Docs are aligned and deployment runbook is current.
 
 ## Backlog
 - ~~GA4 analytics wiring.~~ Done — runtime injection via `GA_MEASUREMENT_ID` env var.
