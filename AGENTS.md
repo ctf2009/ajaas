@@ -97,7 +97,6 @@ Format: `<type>: <description>`
 | `refactor` | Code restructuring | none |
 | `test` | Adding/updating tests | none |
 | `ci` | CI/CD pipeline changes | none |
-| `perf` | Performance improvement | patch |
 
 Add `!` after the type for breaking changes (e.g. `feat!: remove endpoint`), which bumps minor while pre-1.0.
 

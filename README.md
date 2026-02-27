@@ -70,7 +70,8 @@ Message endpoints also support content negotiation via the `Accept` header. Set 
 | `SECURITY_ENABLED` | `false` | Require authentication for endpoints |
 | `ENCRYPTION_KEY` | - | Key for token encryption (32+ chars) |
 | `TOUGH_LOVE_ENABLED` | `true` | Include tough love messages |
-| `DB_PATH` | `:memory:` | SQLite database path |
+| `DB_PATH` | `:memory:` | SQLite database path (or PostgreSQL URL) |
+| `DATA_ENCRYPTION_KEY` | - | Encrypt sensitive fields at rest (32+ chars) |
 | `RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
 | `RATE_LIMIT_MAX` | `100` | Max requests per time window |
 | `RATE_LIMIT_WINDOW` | `1 minute` | Rate limit time window |
@@ -118,10 +119,11 @@ curl -X POST http://localhost:3000/api/schedule \
 
 ## Security
 
-AJaaS uses encrypted tokens (AES-256-GCM) for authentication. Two roles are available:
+AJaaS uses encrypted tokens (AES-256-GCM) for authentication. Three roles are available:
 
 - **read** - Can call message endpoints
 - **schedule** - Can call message endpoints AND manage schedules
+- **admin** - Full access including token revocation (`POST /api/admin/revoke`)
 
 Generate a token:
 
