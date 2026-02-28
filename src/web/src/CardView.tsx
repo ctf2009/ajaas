@@ -32,11 +32,12 @@ function CardView() {
   const [searchParams] = useSearchParams();
   const from = searchParams.get('from');
   const showConfetti = searchParams.get('confetti') === 'true';
-  const gifId = searchParams.get('gif');
+  const gifParam = searchParams.get('gif');
 
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [gifUrl, setGifUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const confettiFired = useRef(false);
 
@@ -68,6 +69,16 @@ function CardView() {
   useEffect(() => {
     fetchMessage();
   }, [fetchMessage]);
+
+  useEffect(() => {
+    if (!gifParam) return;
+    fetch(`/api/klipy/item/${encodeURIComponent(gifParam)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.fullUrl) setGifUrl(data.fullUrl);
+      })
+      .catch(() => {});
+  }, [gifParam]);
 
   useEffect(() => {
     if (!showConfetti || !message || confettiFired.current || !canvasRef.current) return;
@@ -118,19 +129,19 @@ function CardView() {
             <>
               <p className="card-greeting">Hey {decodeURIComponent(name)},</p>
               <p className="card-message">{message}</p>
-              {gifId && (
+              {gifUrl && (
                 <div className="card-gif">
                   <img
-                    src={`https://media.giphy.com/media/${gifId}/giphy.gif`}
+                    src={gifUrl}
                     alt="GIF"
                   />
                   <a
                     className="card-gif-attribution"
-                    href="https://giphy.com"
+                    href="https://klipy.com"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    via GIPHY
+                    Powered by KLIPY
                   </a>
                 </div>
               )}

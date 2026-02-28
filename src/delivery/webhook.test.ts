@@ -24,7 +24,7 @@ describe('WebhookDelivery', () => {
       ok: true,
       status: 200,
     });
-    vi.stubGlobal('fetch', mockFetch);
+    delivery = new WebhookDelivery(mockFetch as typeof fetch);
 
     const result = await delivery.sendMessage(
       'https://example.com/webhook',
@@ -45,7 +45,7 @@ describe('WebhookDelivery', () => {
   it('should include HMAC signature when secret is provided', async () => {
     const secret = 'my-webhook-secret';
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal('fetch', mockFetch);
+    delivery = new WebhookDelivery(mockFetch as typeof fetch);
 
     await delivery.sendMessage(
       'https://example.com/webhook',
@@ -67,7 +67,7 @@ describe('WebhookDelivery', () => {
 
   it('should not include signature header when no secret is provided', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal('fetch', mockFetch);
+    delivery = new WebhookDelivery(mockFetch as typeof fetch);
 
     await delivery.sendMessage(
       'https://example.com/webhook',
@@ -84,7 +84,7 @@ describe('WebhookDelivery', () => {
       status: 500,
       statusText: 'Internal Server Error',
     });
-    vi.stubGlobal('fetch', mockFetch);
+    delivery = new WebhookDelivery(mockFetch as typeof fetch);
 
     const result = await delivery.sendMessage(
       'https://example.com/webhook',
@@ -96,7 +96,7 @@ describe('WebhookDelivery', () => {
 
   it('should return false on network error', async () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('Connection refused'));
-    vi.stubGlobal('fetch', mockFetch);
+    delivery = new WebhookDelivery(mockFetch as typeof fetch);
 
     const result = await delivery.sendMessage(
       'https://example.com/webhook',
@@ -108,7 +108,7 @@ describe('WebhookDelivery', () => {
 
   it('should include optional fields in payload', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal('fetch', mockFetch);
+    delivery = new WebhookDelivery(mockFetch as typeof fetch);
 
     const fullPayload: WebhookPayload = {
       ...testPayload,

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { launchConfetti } from './confetti';
 import './App.css';
@@ -6,9 +6,10 @@ import './App.css';
 type MessageType = 'awesome' | 'weekly' | 'random' | 'animal' | 'absurd' | 'meta' | 'unexpected';
 
 interface GifResult {
-  id: string;
+  id: number;
   title: string;
   previewUrl: string;
+  fullUrl: string;
 }
 
 function App() {
@@ -23,8 +24,13 @@ function App() {
 
   const [gifQuery, setGifQuery] = useState('');
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
-  const [selectedGif, setSelectedGif] = useState<string | null>(null);
+  const [selectedGifId, setSelectedGifId] = useState<number | null>(null);
+  const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
   const [gifLoading, setGifLoading] = useState(false);
+  const [gifPage, setGifPage] = useState(1);
+  const [gifHasMore, setGifHasMore] = useState(false);
+  const [gifLoadingMore, setGifLoadingMore] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apiBase = '/api';
 
@@ -39,24 +45,66 @@ function App() {
     }
   };
 
-  const searchGifs = useCallback(async () => {
-    if (!gifQuery.trim()) return;
-    setGifLoading(true);
+  const fetchGifs = useCallback(async (query: string, page: number, append: boolean) => {
+    if (!query.trim()) {
+      if (!append) {
+        setGifResults([]);
+        setGifHasMore(false);
+      }
+      return;
+    }
+    if (append) {
+      setGifLoadingMore(true);
+    } else {
+      setGifLoading(true);
+    }
     try {
-      const res = await fetch(`/api/giphy/search?q=${encodeURIComponent(gifQuery)}&limit=9`);
+      const res = await fetch(
+        `/api/klipy/search?q=${encodeURIComponent(query)}&limit=12&page=${page}`,
+      );
       const data = await res.json();
-      setGifResults(data.results || []);
+      const results: GifResult[] = data.results || [];
+      setGifResults((prev) => (append ? [...prev, ...results] : results));
+      setGifHasMore(data.hasMore ?? false);
     } catch {
-      setGifResults([]);
+      if (!append) setGifResults([]);
+      setGifHasMore(false);
     }
     setGifLoading(false);
-  }, [gifQuery]);
+    setGifLoadingMore(false);
+  }, []);
+
+  // Debounced search-as-you-type
+  useEffect(() => {
+    if (!gifQuery.trim()) {
+      setGifResults([]);
+      setGifHasMore(false);
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setGifPage(1);
+      fetchGifs(gifQuery, 1, false);
+    }, 400);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [gifQuery, fetchGifs]);
+
+  const loadMoreGifs = () => {
+    const nextPage = gifPage + 1;
+    setGifPage(nextPage);
+    fetchGifs(gifQuery, nextPage, true);
+  };
 
   const tryIt = async () => {
     setLoading(true);
-    setSelectedGif(null);
+    setSelectedGifId(null);
+    setSelectedGifUrl(null);
     setGifResults([]);
     setGifQuery('');
+    setGifPage(1);
+    setGifHasMore(false);
     try {
       const url = new URL(getEndpoint(), window.location.origin);
       if (from) url.searchParams.set('from', from);
@@ -82,7 +130,7 @@ function App() {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (confetti) params.set('confetti', 'true');
-    if (selectedGif) params.set('gif', selectedGif);
+    if (selectedGifId) params.set('gif', String(selectedGifId));
     const qs = params.toString();
     return qs ? `${base}?${qs}` : base;
   };
@@ -202,6 +250,92 @@ function App() {
         {result && (
           <div className="result">
             <p>{result}</p>
+
+            <div className="gif-search">
+              {selectedGifUrl ? (
+                <div className="gif-preview">
+                  <img src={selectedGifUrl} alt="Selected GIF" />
+                  <div className="gif-preview-actions">
+                    <button
+                      className="gif-preview-change"
+                      onClick={() => {
+                        setSelectedGifId(null);
+                        setSelectedGifUrl(null);
+                      }}
+                    >
+                      Change GIF
+                    </button>
+                    <button
+                      className="gif-preview-remove"
+                      onClick={() => {
+                        setSelectedGifId(null);
+                        setSelectedGifUrl(null);
+                        setGifQuery('');
+                        setGifResults([]);
+                        setGifHasMore(false);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <p className="gif-attribution">
+                    <a href="https://klipy.com" target="_blank" rel="noopener noreferrer">
+                      Powered by KLIPY
+                    </a>
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="gif-search-label">Add a GIF to your card (optional)</p>
+                  <input
+                    className="gif-search-input"
+                    type="text"
+                    value={gifQuery}
+                    onChange={(e) => setGifQuery(e.target.value)}
+                    placeholder="Search KLIPY"
+                  />
+
+                  {gifLoading && <p className="gif-loading">Searching...</p>}
+
+                  {gifResults.length > 0 && (
+                    <>
+                      <div className="gif-grid-scroll">
+                        <div className="gif-grid">
+                          {gifResults.map((gif) => (
+                            <img
+                              key={gif.id}
+                              src={gif.previewUrl}
+                              alt={gif.title}
+                              className="gif-thumb"
+                              onClick={() => {
+                                setSelectedGifId(gif.id);
+                                setSelectedGifUrl(gif.fullUrl);
+                              }}
+                              title={gif.title}
+                            />
+                          ))}
+                        </div>
+                        {gifHasMore && (
+                          <button
+                            className="gif-load-more"
+                            onClick={loadMoreGifs}
+                            disabled={gifLoadingMore}
+                          >
+                            {gifLoadingMore ? 'Loading...' : 'Load more'}
+                          </button>
+                        )}
+                      </div>
+                      <p className="gif-attribution">
+                        <a href="https://klipy.com" target="_blank" rel="noopener noreferrer">
+                          Powered by KLIPY
+                        </a>
+                      </p>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
             <div className="result-actions">
               <Link to={getCardPath()} className="share-link">
                 View as card
@@ -209,49 +343,6 @@ function App() {
               <button className="copy-link" onClick={copyCardLink}>
                 {copied ? 'Copied!' : 'Copy share link'}
               </button>
-            </div>
-
-            <div className="gif-search">
-              <p className="gif-search-label">Add a GIF to your card (optional)</p>
-              <div className="gif-search-row">
-                <input
-                  className="gif-search-input"
-                  type="text"
-                  value={gifQuery}
-                  onChange={(e) => setGifQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && searchGifs()}
-                  placeholder="Search GIFs..."
-                />
-                <button
-                  className="gif-search-btn"
-                  onClick={searchGifs}
-                  disabled={gifLoading || !gifQuery.trim()}
-                >
-                  {gifLoading ? '...' : 'Search'}
-                </button>
-              </div>
-
-              {gifResults.length > 0 && (
-                <>
-                  <div className="gif-grid">
-                    {gifResults.map((gif) => (
-                      <img
-                        key={gif.id}
-                        src={gif.previewUrl}
-                        alt={gif.title}
-                        className={`gif-thumb${selectedGif === gif.id ? ' gif-selected' : ''}`}
-                        onClick={() => setSelectedGif(selectedGif === gif.id ? null : gif.id)}
-                        title={gif.title}
-                      />
-                    ))}
-                  </div>
-                  <p className="gif-attribution">
-                    <a href="https://giphy.com" target="_blank" rel="noopener noreferrer">
-                      Powered by GIPHY
-                    </a>
-                  </p>
-                </>
-              )}
             </div>
           </div>
         )}

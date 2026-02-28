@@ -41,7 +41,7 @@ export interface Config {
     dataEncryptionKey: string;
   };
   smtp: SmtpConfig;
-  giphy: {
+  klipy: {
     apiKey: string;
   };
 }
@@ -135,8 +135,8 @@ export function loadConfig(envFilePath?: string): Config {
       pass: process.env.SMTP_PASS || '',
       from: process.env.SMTP_FROM || 'ajaas@example.com',
     },
-    giphy: {
-      apiKey: process.env.GIPHY_API_KEY || '',
+    klipy: {
+      apiKey: process.env.KLIPY_API_KEY || '',
     },
   };
 }

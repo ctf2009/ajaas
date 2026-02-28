@@ -6,7 +6,7 @@ import type { TokenService } from './auth/token.js';
 import type { Config } from './config.js';
 import { rateLimiter } from './middleware/ratelimit.js';
 import { openApiSpec } from './openapi.js';
-import { giphyRoutes } from './routes/giphy.js';
+import { klipyRoutes } from './routes/klipy.js';
 import { messageRoutes } from './routes/messages.js';
 import { adminRoutes } from './routes/admin.js';
 import { scheduleRoutes } from './routes/schedule.js';
@@ -86,7 +86,7 @@ export function createApp(options: AppOptions): Hono {
   }
 
   app.route('/api', messageRoutes(messageService));
-  app.route('/api', giphyRoutes(config.giphy.apiKey));
+  app.route('/api', klipyRoutes(config.klipy.apiKey));
 
   const schedulingActive =
     config.endpoints.schedule.enabled &&
