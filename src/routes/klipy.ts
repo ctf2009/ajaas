@@ -43,8 +43,8 @@ export function klipyRoutes(
       return c.json({ results: [] });
     }
 
-    const limit = Math.min(parseInt(c.req.query('limit') || '9', 10), 20);
-    const page = Math.max(parseInt(c.req.query('page') || '1', 10), 1);
+    const limit = Math.min(parseInt(c.req.query('limit') || '9', 10) || 9, 20);
+    const page = Math.max(parseInt(c.req.query('page') || '1', 10) || 1, 1);
 
     const url = new URL(`https://api.klipy.com/api/v1/${encodeURIComponent(apiKey)}/gifs/search`);
     url.searchParams.set('q', q);

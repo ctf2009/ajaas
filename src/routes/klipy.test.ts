@@ -104,6 +104,25 @@ describe('Klipy Routes', () => {
     });
   });
 
+  it('falls back to defaults for non-numeric limit and page', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        result: true,
+        data: { data: [], has_next: false },
+      }),
+    });
+    await createApp(
+      'test-key',
+      mockFetch as typeof fetch,
+    ).request('http://localhost/api/klipy/search?q=test&limit=foo&page=bar');
+
+    const [requestUrl] = mockFetch.mock.calls[0];
+    const url = new URL(requestUrl);
+    expect(url.searchParams.get('per_page')).toBe('9');
+    expect(url.searchParams.get('page')).toBe('1');
+  });
+
   it('resolves a GIF item by ID', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,

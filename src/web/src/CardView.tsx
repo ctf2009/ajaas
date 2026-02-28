@@ -71,13 +71,16 @@ function CardView() {
   }, [fetchMessage]);
 
   useEffect(() => {
-    if (!gifParam) return;
+    if (!gifParam) {
+      setGifUrl(null);
+      return;
+    }
     fetch(`/api/klipy/item/${encodeURIComponent(gifParam)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.fullUrl) setGifUrl(data.fullUrl);
+        setGifUrl(data?.fullUrl ?? null);
       })
-      .catch(() => {});
+      .catch(() => setGifUrl(null));
   }, [gifParam]);
 
   useEffect(() => {
