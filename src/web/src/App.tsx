@@ -31,6 +31,7 @@ function App() {
   const [gifHasMore, setGifHasMore] = useState(false);
   const [gifLoadingMore, setGifLoadingMore] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gifAbortRef = useRef<AbortController | null>(null);
 
   const apiBase = '/api';
 
@@ -53,6 +54,11 @@ function App() {
       }
       return;
     }
+    if (!append) {
+      gifAbortRef.current?.abort();
+      gifAbortRef.current = new AbortController();
+    }
+    const signal = gifAbortRef.current?.signal;
     if (append) {
       setGifLoadingMore(true);
     } else {
@@ -61,12 +67,14 @@ function App() {
     try {
       const res = await fetch(
         `/api/klipy/search?q=${encodeURIComponent(query)}&limit=12&page=${page}`,
+        { signal },
       );
       const data = await res.json();
       const results: GifResult[] = data.results || [];
       setGifResults((prev) => (append ? [...prev, ...results] : results));
       setGifHasMore(data.hasMore ?? false);
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       if (!append) setGifResults([]);
       setGifHasMore(false);
     }

@@ -75,12 +75,17 @@ function CardView() {
       setGifUrl(null);
       return;
     }
-    fetch(`/api/klipy/item/${encodeURIComponent(gifParam)}`)
+    const controller = new AbortController();
+    fetch(`/api/klipy/item/${encodeURIComponent(gifParam)}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         setGifUrl(data?.fullUrl ?? null);
       })
-      .catch(() => setGifUrl(null));
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setGifUrl(null);
+      });
+    return () => controller.abort();
   }, [gifParam]);
 
   useEffect(() => {
