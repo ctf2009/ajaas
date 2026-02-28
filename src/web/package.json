@@ -13,6 +13,9 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.13.0"
   },
+  "overrides": {
+    "rollup": ">=4.59.0"
+  },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

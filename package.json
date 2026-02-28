@@ -41,6 +41,9 @@
     "nodemailer": "^7.0.13",
     "pg": "^8.18.0"
   },
+  "overrides": {
+    "rollup": ">=4.59.0"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260210.0",
     "@types/better-sqlite3": "^7.6.12",

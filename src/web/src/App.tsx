@@ -74,7 +74,11 @@ function App() {
       setGifResults((prev) => (append ? [...prev, ...results] : results));
       setGifHasMore(data.hasMore ?? false);
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setGifLoading(false);
+        setGifLoadingMore(false);
+        return;
+      }
       if (!append) setGifResults([]);
       setGifHasMore(false);
     }
