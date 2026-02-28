@@ -85,6 +85,8 @@ function App() {
   // Debounced search-as-you-type
   useEffect(() => {
     if (!gifQuery.trim()) {
+      gifAbortRef.current?.abort();
+      gifAbortRef.current = null;
       setGifResults([]);
       setGifHasMore(false);
       return;
