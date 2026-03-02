@@ -199,6 +199,21 @@ footer {
   font-weight: 500;
 }
 
+.built-by {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.built-by a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.built-by a:hover {
+  text-decoration: underline;
+}
+
 .footer-message {
   color: var(--text-muted);
   font-style: italic;
