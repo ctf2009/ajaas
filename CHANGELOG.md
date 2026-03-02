@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.11](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.10...ajaas-v0.1.11) (2026-03-02)
+
+
+### Features
+
+* add "Built by Chris Flaherty" link to footer ([#36](https://github.com/ctf2009/ajaas/issues/36)) ([a911f27](https://github.com/ctf2009/ajaas/commit/a911f2780bd98b54a1689ec992addb7c17e18cd8))
+* integrate gifs with klipy ([#35](https://github.com/ctf2009/ajaas/issues/35)) ([445861d](https://github.com/ctf2009/ajaas/commit/445861da869ee76b25fba2e51bc91876c83771fe))
+
 ## [0.1.10](https://github.com/ctf2009/ajaas/compare/ajaas-v0.1.9...ajaas-v0.1.10) (2026-02-26)
 
 
