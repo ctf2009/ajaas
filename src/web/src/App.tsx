@@ -292,6 +292,12 @@ function App() {
             Terms
           </a>
         </div>
+        <p className="built-by">
+          Built by{' '}
+          <a href="https://chrisflaherty.au" target="_blank" rel="noopener noreferrer">
+            Chris Flaherty
+          </a>
+        </p>
         <p className="footer-message">
           You've scrolled this far. Awesome job. Take the rest of the day off.
         </p>
