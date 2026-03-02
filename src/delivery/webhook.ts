@@ -9,7 +9,11 @@ export interface WebhookPayload {
   timestamp: string;
 }
 
+const nativeFetch: typeof fetch = globalThis.fetch.bind(globalThis);
+
 export class WebhookDelivery {
+  constructor(private readonly externalFetch: typeof fetch = nativeFetch) {}
+
   async sendMessage(
     url: string,
     payload: WebhookPayload,
@@ -29,7 +33,7 @@ export class WebhookDelivery {
         headers['X-AJaaS-Signature'] = `sha256=${signature}`;
       }
 
-      const response = await fetch(url, {
+      const response = await this.externalFetch(url, {
         method: 'POST',
         headers,
         body,

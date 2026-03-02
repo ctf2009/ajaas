@@ -41,6 +41,9 @@ export interface Config {
     dataEncryptionKey: string;
   };
   smtp: SmtpConfig;
+  klipy: {
+    apiKey: string;
+  };
 }
 
 function getEnvBoolean(key: string, defaultValue: boolean): boolean {
@@ -131,6 +134,9 @@ export function loadConfig(envFilePath?: string): Config {
       user: process.env.SMTP_USER || '',
       pass: process.env.SMTP_PASS || '',
       from: process.env.SMTP_FROM || 'ajaas@example.com',
+    },
+    klipy: {
+      apiKey: process.env.KLIPY_API_KEY || '',
     },
   };
 }

@@ -7,7 +7,7 @@ const ENV_KEYS = [
   'ENCRYPTION_KEY', 'DATA_ENCRYPTION_KEY', 'TOUGH_LOVE_ENABLED', 'DB_PATH',
   'RATE_LIMIT_ENABLED', 'RATE_LIMIT_MAX', 'RATE_LIMIT_WINDOW', 'CORS_ORIGIN',
   'GA_MEASUREMENT_ID', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER',
-  'SMTP_PASS', 'SMTP_FROM',
+  'SMTP_PASS', 'SMTP_FROM', 'KLIPY_API_KEY', 'ENV_FILE',
 ];
 
 function setEnv(vars: Record<string, string | undefined>) {
@@ -25,6 +25,8 @@ describe('loadConfig', () => {
     for (const key of ENV_KEYS) {
       delete process.env[key];
     }
+    // Prevent loadConfig from reading the real .env file
+    process.env.ENV_FILE = '/nonexistent/.env';
   });
 
   afterEach(() => {
@@ -88,6 +90,10 @@ describe('loadConfig', () => {
 
     it('uses CORS wildcard by default', () => {
       expect(loadConfig().cors.origin).toBe('*');
+    });
+
+    it('uses empty KLIPY API key by default', () => {
+      expect(loadConfig().klipy.apiKey).toBe('');
     });
   });
 
@@ -307,6 +313,11 @@ describe('loadConfig', () => {
     it('reads RATE_LIMIT_WINDOW from env', () => {
       setEnv({ RATE_LIMIT_WINDOW: '5 minutes' });
       expect(loadConfig().rateLimit.timeWindow).toBe('5 minutes');
+    });
+
+    it('reads KLIPY_API_KEY from env', () => {
+      setEnv({ KLIPY_API_KEY: 'test-klipy-key' });
+      expect(loadConfig().klipy.apiKey).toBe('test-klipy-key');
     });
   });
 });

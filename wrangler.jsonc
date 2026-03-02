@@ -14,5 +14,17 @@
     "SCHEDULE_ENABLED": "false",
     "SECURITY_ENABLED": "false",
     "RATE_LIMIT_ENABLED": "false"
+  },
+  "env": {
+    "staging": {
+      // Deploys as a separate worker named "ajaas-staging"
+      "name": "ajaas-staging",
+      // vars are non-inheritable in wrangler so must be redefined per env
+      "vars": {
+        "SCHEDULE_ENABLED": "false",
+        "SECURITY_ENABLED": "false",
+        "RATE_LIMIT_ENABLED": "false"
+      }
+    }
   }
 }
