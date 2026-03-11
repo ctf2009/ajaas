@@ -81,6 +81,23 @@ describe('Message Routes', () => {
     });
   });
 
+  describe('GET /api/shane/:name', () => {
+    it('should return a shane WFT message containing the name', async () => {
+      const response = await createApp().request('http://localhost/api/shane/Chris');
+      expect(response.status).toBe(200);
+      const body = await readJson<MessageBody>(response);
+      expect(body.message).toContain('Chris');
+      expect(body.message).toContain('Shane');
+    });
+
+    it('should include attribution when from is provided', async () => {
+      const response = await createApp().request('http://localhost/api/shane/Chris?from=Train%20Crew');
+      expect(response.status).toBe(200);
+      const body = await readJson<MessageBody>(response);
+      expect(body.message).toContain('- Train Crew');
+    });
+  });
+
   describe('GET /api/message/:type/:name', () => {
     it('should return a message of the specified type', async () => {
       const response = await createApp().request('http://localhost/api/message/animal/Rachel');
@@ -180,6 +197,17 @@ describe('Message Routes', () => {
       expect(response.status).toBe(200);
       expect(response.headers.get('content-type')).toContain('text/plain');
       expect(await response.text()).toContain('Alex');
+    });
+
+    it('should return text/plain for shane endpoint', async () => {
+      const response = await createApp().request('http://localhost/api/shane/Chris', {
+        headers: { accept: 'text/plain' },
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('text/plain');
+      const text = await response.text();
+      expect(text).toContain('Chris');
+      expect(text).toContain('Shane');
     });
 
     it('should return text/plain for message type endpoint', async () => {
